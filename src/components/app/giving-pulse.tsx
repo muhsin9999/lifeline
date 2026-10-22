@@ -37,7 +37,7 @@ function bucket(p: Pulse, range: Range): Day[] {
     const d = byKey.get(f.at.slice(0, 10));
     if (!d) continue;
     d.failed += f.cents;
-    if (["new", "diagnosing", "awaiting_approval", "acting"].includes(f.status)) d.open += 1;
+    if (["new", "diagnosing", "awaiting_approval", "acting", "watching"].includes(f.status)) d.open += 1;
     d.entries.push({ donor: f.donor, cents: f.cents, kind: "failed" });
   }
   return days;

@@ -3,13 +3,15 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { ArrowLeftIcon } from "lucide-react";
+import { AutoRefresh } from "@/components/app/auto-refresh";
 import { ChatRail, type RailMessage } from "@/components/app/chat-rail";
+import { LookAgain } from "@/components/app/look-again";
 import { DonorHistory } from "@/components/app/donor-history";
 import { RescueActions } from "@/components/app/rescue-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { day, money } from "@/lib/format";
 import { causeLabel } from "@/lib/labels";
-import type { FixId } from "@/lib/fixes";
+import { FIXES, type FixId } from "@/lib/fixes";
 import { currentOrg, getRescue } from "@/server/queries";
 
 export const metadata = { title: "Rescue" };
@@ -64,24 +66,53 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
             </p>
           </header>
 
+          <AutoRefresh active={working} />
           {working ? (
             <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-muted-foreground shadow-soft">Lifeline AI is looking into this. The fix appears here when it&apos;s ready.</p>
-          ) : r.diagnosis ? (
+          ) : r.status === "awaiting_approval" && r.diagnosis ? (
             <>
               <p className="px-1 text-[15px] leading-relaxed text-pretty">{r.diagnosis.summary}</p>
+              {r.error ? <LookAgain failureId={r.id} /> : null}
               <RescueActions
+                failureId={r.id}
                 first={first}
                 amount={money(r.amountCents)}
+                amountCents={r.donor.amountCents}
                 fixes={(r.fixes ?? []) as FixId[]}
                 recommended={(r.recommendedFix ?? "note") as FixId}
                 retryOn={r.nextRetryAt ? day(r.nextRetryAt) : null}
                 note={note ? { subject: note.subject, body: note.body, to: note.to } : null}
               />
             </>
-          ) : null}
+          ) : (
+            <Outcome status={r.status} fix={r.chosenFix as FixId | null} first={first} recovered={r.recoveredCents} note={note} />
+          )}
         </div>
       </main>
-      <ChatRail mood={working ? "working" : r.status === "recovered" ? "happy" : "happy"} status={working ? `Working on ${first}'s rescue…` : "Fix ready for your approval"} messages={messages} />
+      <ChatRail mood={working ? "working" : "happy"} status={working ? `Working on ${first}'s rescue…` : r.status === "awaiting_approval" ? "Fix ready for your approval" : "Rescue handled"} messages={messages} />
     </>
+  );
+}
+
+const OUTCOME: Record<string, { tone: "good" | "wait" | "neutral"; title: (first: string) => string }> = {
+  watching: { tone: "wait", title: (f) => `Watching for ${f}'s next gift` },
+  acting: { tone: "wait", title: () => "Waiting for PayPal to confirm" },
+  recovered: { tone: "good", title: (f) => `${f}'s gift is back` },
+  paused: { tone: "neutral", title: (f) => `${f}'s monthly gift is paused` },
+  cancelled: { tone: "neutral", title: (f) => `${f}'s monthly gift is cancelled` },
+  lost: { tone: "neutral", title: (f) => `${f} stopped giving` },
+};
+
+function Outcome({ status, fix, first, recovered, note }: { status: string; fix: FixId | null; first: string; recovered: number | null; note: { status: string; sentAt: Date | null } | null }) {
+  const o = OUTCOME[status] ?? { tone: "neutral" as const, title: () => status };
+  return (
+    <section className={o.tone === "good" ? "rounded-2xl border border-recovered/30 bg-recovered-tint px-5 py-4" : "rounded-2xl border border-line bg-surface px-5 py-4 shadow-soft"}>
+      <p className="text-sm font-semibold">{o.title(first)}{status === "recovered" && recovered ? ` · ${money(recovered)}` : ""}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {fix ? `You approved: ${FIXES[fix].label.toLowerCase()}.` : null}
+        {note?.status === "sent" && note.sentAt ? ` Note sent ${day(note.sentAt)}.` : null}
+        {status === "watching" ? " Lifeline marks this recovered the moment PayPal reports the gift." : null}
+      </p>
+    </section>
   );
 }

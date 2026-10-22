@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { db, schema as s } from "@/db";
+import { diagnose } from "@/server/ai/rescue";
 import { PayPalError } from "@/server/paypal/rest";
 import { ingest, verifySignature, type WebhookEvent } from "@/server/paypal/webhooks";
 
@@ -33,8 +35,10 @@ export async function POST(request: Request) {
     return Response.json({ ok: false }, { status: 400 });
   }
 
-  const { outcome } = await ingest(event);
+  const { outcome, failureId } = await ingest(event);
   await log(event, verification, outcome, null);
+  // A failed gift: the agent looks into it right away, after PayPal has its 200.
+  if (failureId) after(() => diagnose(failureId).then(() => undefined));
   return Response.json({ ok: true, outcome });
 }
 

@@ -3,7 +3,10 @@ import "server-only";
 import { and, asc, desc, eq, gte, inArray, lt, notInArray, sql } from "drizzle-orm";
 import { db, schema as s } from "@/db";
 
-const OPEN = ["new", "diagnosing", "awaiting_approval", "acting"] as const;
+/** Waiting on the agent or the officer. */
+const NEEDS = ["new", "diagnosing", "awaiting_approval"] as const;
+/** Still not paid: needs the officer, or a fix is out and Lifeline is watching for the next gift. */
+const OPEN = [...NEEDS, "acting", "watching"] as const;
 const CLOSED = ["recovered", "lost", "cancelled", "paused"];
 
 /** The nonprofit this deployment serves (one food bank per deployment). */
@@ -76,7 +79,16 @@ export type Pulse = Awaited<ReturnType<typeof getPulse>>;
 /** Failed gifts still waiting on the officer or the agent, newest first. */
 export async function getNeedsYou(orgId: string) {
   return db.query.failures.findMany({
-    where: and(eq(s.failures.orgId, orgId), inArray(s.failures.status, [...OPEN])),
+    where: and(eq(s.failures.orgId, orgId), inArray(s.failures.status, [...NEEDS])),
+    with: { donor: true },
+    orderBy: desc(s.failures.failedAt),
+  });
+}
+
+/** Fixes that are out (a note sent, a smaller amount): Lifeline is watching for the donor's next gift. */
+export async function getWatching(orgId: string) {
+  return db.query.failures.findMany({
+    where: and(eq(s.failures.orgId, orgId), inArray(s.failures.status, ["acting", "watching"])),
     with: { donor: true },
     orderBy: desc(s.failures.failedAt),
   });

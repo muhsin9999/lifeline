@@ -1,9 +1,9 @@
 // PayPal webhooks: verify with PayPal, store once, translate to plain English, and open a rescue for a failed gift.
 import "server-only";
 import { X509Certificate } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, schema as s } from "@/db";
-import { describe, failedPaymentOf, subscriptionIdOf, type WebhookEvent } from "@/lib/paypal-events";
+import { cents, describe, failedPaymentOf, subscriptionIdOf, type WebhookEvent } from "@/lib/paypal-events";
 import { checkSignature, trustedCertUrl } from "@/lib/paypal-signature";
 import { paypal } from "./rest";
 
@@ -83,7 +83,19 @@ export async function ingest(event: WebhookEvent, opts: { simulated?: boolean } 
   if (donor) {
     const status = STATUS_AFTER[event.event_type];
     if (status) await db.update(s.donors).set({ status }).where(eq(s.donors.id, donor.id));
-    if (event.event_type === "PAYMENT.SALE.COMPLETED") await db.update(s.donors).set({ lastPaymentAt: at }).where(eq(s.donors.id, donor.id));
+    if (event.event_type === "PAYMENT.SALE.COMPLETED") {
+      // A gift went through. If a rescue was open for this donor, this is the gift that recovered it.
+      const sale = event.resource as { id?: string; amount?: { total?: string; currency?: string } };
+      const amount = cents({ value: sale.amount?.total }) ?? donor.amountCents;
+      const open = await db.query.failures.findFirst({
+        where: and(eq(s.failures.donorId, donor.id), inArray(s.failures.status, ["new", "diagnosing", "awaiting_approval", "acting", "watching"])),
+        orderBy: desc(s.failures.failedAt),
+      });
+      if (sale.id)
+        await db.insert(s.gifts).values({ orgId: donor.orgId, donorId: donor.id, paypalTransactionId: sale.id, amountCents: amount, chargedAt: at, recoveredFailureId: open?.id ?? null }).onConflictDoNothing({ target: s.gifts.paypalTransactionId });
+      if (open) await db.update(s.failures).set({ status: "recovered", recoveredCents: amount, resolvedAt: at }).where(eq(s.failures.id, open.id));
+      await db.update(s.donors).set({ lastPaymentAt: at, outstandingCents: 0 }).where(eq(s.donors.id, donor.id));
+    }
     if (event.event_type === "BILLING.SUBSCRIPTION.PAYMENT.FAILED") {
       const f = failedPaymentOf(event);
       const [row] = await db

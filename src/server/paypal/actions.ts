@@ -1,0 +1,241 @@
+// The officer-approved fixes, as durable writes (paypal-plan.md §1b.1): claim → PayPal call → record. The claim
+// row is committed before the call, so a second click or a retry can't reach PayPal twice, and a lost answer
+// leaves something to settle by re-reading PayPal.
+import "server-only";
+import { and, eq } from "drizzle-orm";
+import type { PaypalClient, Subscription } from "paypal";
+import { db, schema as s } from "@/db";
+import { cents } from "@/lib/paypal-events";
+import { FIXES, type FixId } from "@/lib/fixes";
+import { sendNote } from "../mail";
+import { outcomeOf, type PayPalOutcome } from "./errors";
+import { paypalSdk } from "./sdk";
+
+export type FixResult =
+  | { ok: true; message: string }
+  | { ok: false; status: number; message: string; pending?: boolean };
+
+type Claim = typeof s.paypalActions.$inferSelect;
+
+const isUniqueViolation = (e: unknown) => {
+  const code = (e as { code?: string; cause?: { code?: string } }).code ?? (e as { cause?: { code?: string } }).cause?.code;
+  return code === "23505";
+};
+
+/** Inserts the claim, or returns the row that already holds it (the winner of a race, or an earlier click). */
+export async function claimAction(values: { claimKey: string; orgId: string; failureId: string; kind: string }): Promise<{ claimed: true; row: Claim } | { claimed: false; row: Claim }> {
+  try {
+    const [row] = await db.insert(s.paypalActions).values(values).returning();
+    return { claimed: true, row };
+  } catch (e) {
+    if (!isUniqueViolation(e)) throw e;
+    const row = await db.query.paypalActions.findFirst({ where: eq(s.paypalActions.claimKey, values.claimKey) });
+    if (!row) throw e;
+    return { claimed: false, row };
+  }
+}
+
+const release = (claim: Claim) => db.delete(s.paypalActions).where(eq(s.paypalActions.id, claim.id));
+const settle = (claim: Claim, status: "done" | "unknown", result?: unknown, error?: string) =>
+  db.update(s.paypalActions).set({ status, result: result ?? null, error: error ?? null, settledAt: status === "done" ? new Date() : null }).where(eq(s.paypalActions.id, claim.id));
+
+const usd = (c: number) => (c / 100).toFixed(2);
+const statusOf = (sub: Subscription) => {
+  const v = (sub as { status?: unknown }).status; // not on the SDK type (paypal-plan.md, Assumption 1)
+  return typeof v === "string" ? v : null;
+};
+const firstCyclePrice = (sub: Subscription) => sub.plan?.billingCycles?.find((c) => c.sequence === 1)?.pricingScheme?.fixedPrice?.value ?? null;
+
+/** What a re-read must show for each write to count as done (paypal-plan.md, UNKNOWN OUTCOMES). */
+function confirmedBy(fix: FixId, sub: Subscription, claim: Claim, newAmountCents?: number) {
+  const owed = sub.billingInfo?.outstandingBalance?.value;
+  switch (fix) {
+    case "retry": {
+      const paid = sub.billingInfo?.lastPayment?.time;
+      return Number(owed ?? "1") === 0 && !!paid && new Date(paid) > claim.createdAt;
+    }
+    case "pause":
+      return statusOf(sub) === "SUSPENDED";
+    case "cancel":
+      return statusOf(sub) === "CANCELLED";
+    case "lower":
+      return newAmountCents !== undefined && firstCyclePrice(sub) === usd(newAmountCents);
+    case "forgive":
+      return Number(owed ?? "1") === 0;
+    case "note":
+      return false;
+  }
+}
+
+/** Re-reads the subscription after a write whose answer was lost. Found → done; not found or re-read failed → still unknown. */
+async function reread(client: PaypalClient, fix: FixId, subscriptionId: string, claim: Claim, newAmountCents?: number) {
+  try {
+    const sub = await client.subscriptions.getSubscription({ id: subscriptionId });
+    if (confirmedBy(fix, sub, claim, newAmountCents)) {
+      await settle(claim, "done", { reread: true });
+      return true;
+    }
+  } catch (e) {
+    outcomeOf(e); // rethrows anything outside the SDK family
+  }
+  await settle(claim, "unknown", null, "PayPal didn't answer; re-read did not confirm");
+  return false;
+}
+
+function failed(o: PayPalOutcome): FixResult {
+  switch (o.kind) {
+    case "refused":
+      return { ok: false, status: o.status, message: o.reason };
+    case "unavailable":
+      return { ok: false, status: o.status === 429 ? 503 : 502, message: o.message };
+    case "never_sent":
+      return { ok: false, status: 500, message: o.message };
+    case "no_response":
+    case "unreadable":
+      return { ok: false, status: 502, message: "We're checking with PayPal whether this went through.", pending: true };
+  }
+}
+
+/**
+ * Runs one approved fix for a failed gift. `failureId` is Lifeline's own id: the subscription is looked up from
+ * Lifeline's records for the officer's organisation, never taken from the caller (§1b.2).
+ */
+export async function runFix(input: { orgId: string; failureId: string; fix: FixId; approvedBy: string; newAmountCents?: number; note?: { subject: string; body: string } }, client: PaypalClient = paypalSdk()): Promise<FixResult> {
+  const failure = await db.query.failures.findFirst({ where: and(eq(s.failures.id, input.failureId), eq(s.failures.orgId, input.orgId)), with: { donor: true } });
+  if (!failure) return { ok: false, status: 404, message: "That rescue doesn't exist." };
+  if (!(failure.fixes ?? []).includes(input.fix)) return { ok: false, status: 400, message: "That fix wasn't offered for this gift." };
+  if (input.fix === "lower" && !(input.newAmountCents && input.newAmountCents > 0 && input.newAmountCents < failure.donor.amountCents))
+    return { ok: false, status: 400, message: "The new amount must be more than $0 and less than the current gift." };
+  const subscriptionId = failure.donor.paypalSubscriptionId;
+  if (!subscriptionId) return { ok: false, status: 409, message: "This donor has no PayPal subscription yet." };
+
+  // Retry charges what PayPal says is owed, read before the claim: a read that fails is not a write in doubt.
+  let owed: { currencyCode: string; value: string } | null = null;
+  if (input.fix === "retry") {
+    try {
+      const sub = await client.subscriptions.getSubscription({ id: subscriptionId });
+      owed = sub.billingInfo?.outstandingBalance ?? null;
+    } catch (e) {
+      const o = outcomeOf(e);
+      return o.kind === "refused" ? failed(o) : { ok: false, status: 502, message: "Couldn't reach PayPal to check what's owed." };
+    }
+    if (!owed || Number(owed.value) <= 0) return { ok: false, status: 409, message: "PayPal shows nothing owed on this gift, so there's nothing to retry." };
+  }
+
+  const c = await claimAction({ claimKey: `${input.fix}:${failure.id}`, orgId: input.orgId, failureId: failure.id, kind: input.fix });
+  if (!c.claimed) {
+    if (c.row.status === "done") return { ok: true, message: "Already done." };
+    if (c.row.status === "unknown" && input.fix !== "note") {
+      const done = await reread(client, input.fix, subscriptionId, c.row, input.newAmountCents);
+      if (done) {
+        await afterFix(input, failure, c.row);
+        return { ok: true, message: "PayPal confirms this went through." };
+      }
+    }
+    return { ok: false, status: 409, message: "This fix is already in progress.", pending: true };
+  }
+  const claim = c.row;
+
+  if (input.fix === "note") {
+    const note = input.note ?? (await db.query.notes.findFirst({ where: eq(s.notes.failureId, failure.id) }));
+    if (!note) {
+      await release(claim);
+      return { ok: false, status: 400, message: "There's no note to send." };
+    }
+    const sent = await sendNote({ donorName: failure.donor.name, donorEmail: failure.donor.email, subject: note.subject, body: note.body });
+    if (!sent.ok) {
+      await release(claim);
+      return { ok: false, status: sent.status, message: sent.message };
+    }
+    await settle(claim, "done", { providerId: sent.id, to: sent.to });
+    await db.update(s.notes).set({ status: "sent", providerId: sent.id, sentAt: new Date(), subject: note.subject, body: note.body }).where(eq(s.notes.failureId, failure.id));
+    await afterFix(input, failure, claim);
+    return { ok: true, message: `Note sent to ${sent.to}.` };
+  }
+
+  try {
+    let result: unknown = null;
+    if (input.fix === "retry" && owed) {
+      const tx = await client.subscriptions.captureSubscription({
+        id: subscriptionId,
+        payPalRequestId: claim.id,
+        body: { note: "Monthly gift retried by Lifeline after approval", captureType: "OUTSTANDING_BALANCE", amount: { currencyCode: owed.currencyCode, value: owed.value } },
+      });
+      if (!tx.id) throw new Error("PayPal returned no transaction id for the capture");
+      result = { transactionId: tx.id, status: tx.status ?? null, time: tx.time };
+      await db
+        .insert(s.gifts)
+        .values({ orgId: input.orgId, donorId: failure.donorId, paypalTransactionId: tx.id, amountCents: cents(owed) ?? failure.amountCents, chargedAt: new Date(tx.time), recoveredFailureId: failure.id })
+        .onConflictDoNothing({ target: s.gifts.paypalTransactionId });
+    } else {
+      const call =
+        input.fix === "pause"
+          ? client.subscriptions.suspendSubscription({ id: subscriptionId, body: { reason: "Paused by the nonprofit after a failed monthly gift" } }).asApiResult()
+          : input.fix === "cancel"
+            ? client.subscriptions.cancelSubscription({ id: subscriptionId, body: { reason: "Cancelled by the nonprofit at the donor's request" } }).asApiResult()
+            : client.subscriptions
+                .patchSubscription({
+                  id: subscriptionId,
+                  body: [
+                    input.fix === "lower"
+                      ? { op: "replace", path: "/plan/billing_cycles/@sequence==1/pricing_scheme/fixed_price", value: { currency_code: "USD", value: usd(input.newAmountCents!) } }
+                      : { op: "replace", path: "/billing_info/outstanding_balance", value: { currency_code: "USD", value: "0.00" } },
+                  ],
+                })
+                .asApiResult();
+      const r = await call;
+      if (!r.ok) {
+        const body = (r.payload as { body?: { message?: string; debugId?: string; details?: { issue?: string; description?: string }[] } }).body;
+        await release(claim);
+        if (r.status === 401 || r.status === 403) return { ok: false, status: 502, message: "Lifeline couldn’t sign in to PayPal." };
+        if (r.status === 429) return { ok: false, status: 503, message: "PayPal is busy. Try again in a minute." };
+        if (r.status >= 500) return { ok: false, status: 502, message: "PayPal had a problem. Try again shortly." };
+        const d = body?.details?.[0];
+        return { ok: false, status: r.status, message: d?.description ?? d?.issue ?? body?.message ?? `PayPal refused the request (${r.status}).` };
+      }
+      result = { status: r.status };
+    }
+    await settle(claim, "done", result);
+    await afterFix(input, failure, claim);
+    return { ok: true, message: DONE[input.fix](failure.donor.name.split(" ")[0]) };
+  } catch (e) {
+    const o = outcomeOf(e);
+    if (o.kind === "no_response" || o.kind === "unreadable") {
+      const done = await reread(client, input.fix, subscriptionId, claim, input.newAmountCents);
+      if (done) {
+        await afterFix(input, failure, claim);
+        return { ok: true, message: "PayPal confirms this went through." };
+      }
+      return failed(o);
+    }
+    await release(claim);
+    return failed(o);
+  }
+}
+
+const DONE: Record<FixId, (first: string) => string> = {
+  note: (f) => `Note sent to ${f}.`,
+  retry: (f) => `${f}'s gift went through.`,
+  pause: (f) => `${f}'s monthly gift is paused.`,
+  lower: (f) => `${f}'s monthly gift is lowered.`,
+  forgive: () => "This month is forgiven; the next gift starts fresh.",
+  cancel: (f) => `${f}'s monthly gift is cancelled.`,
+};
+
+type FailureWithDonor = NonNullable<Awaited<ReturnType<typeof db.query.failures.findFirst>>> & { donor: typeof s.donors.$inferSelect };
+
+/** Records what the fix changed: the rescue's state, the donor mirror, the timeline and the audit trail. */
+async function afterFix(input: { orgId: string; fix: FixId; approvedBy: string; newAmountCents?: number }, failure: FailureWithDonor, claim: Claim) {
+  const now = new Date();
+  const status = input.fix === "retry" ? "recovered" : input.fix === "pause" ? "paused" : input.fix === "cancel" ? "cancelled" : "watching";
+  await db
+    .update(s.failures)
+    .set({ status, chosenFix: input.fix, ...(input.fix === "retry" && { recoveredCents: failure.amountCents }), ...(status !== "watching" && { resolvedAt: now }) })
+    .where(eq(s.failures.id, failure.id));
+  if (input.fix === "pause") await db.update(s.donors).set({ status: "SUSPENDED" }).where(eq(s.donors.id, failure.donorId));
+  if (input.fix === "cancel") await db.update(s.donors).set({ status: "CANCELLED" }).where(eq(s.donors.id, failure.donorId));
+  if (input.fix === "lower" && input.newAmountCents) await db.update(s.donors).set({ amountCents: input.newAmountCents }).where(eq(s.donors.id, failure.donorId));
+  if (input.fix === "retry" || input.fix === "forgive") await db.update(s.donors).set({ outstandingCents: 0 }).where(eq(s.donors.id, failure.donorId));
+  await db.insert(s.events).values({ orgId: input.orgId, donorId: failure.donorId, source: "lifeline", type: `FIX.${input.fix.toUpperCase()}`, summary: `${FIXES[input.fix].label}: ${failure.donor.name}`, verified: true });
+  await db.insert(s.audit).values({ orgId: input.orgId, kind: `fix.${input.fix}`, subjectType: "failure", subjectId: failure.id, output: { claim: claim.claimKey, newAmountCents: input.newAmountCents ?? null }, approvedBy: input.approvedBy });
+}

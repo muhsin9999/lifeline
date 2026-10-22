@@ -140,9 +140,8 @@ Every arm on the Subscriptions writes carries the same `SubscriptionError` model
 
 | Write | Where the claim is stored | What rejects the second one | Where that rejection is caught | Where in the code |
 | --- | --- | --- | --- | --- |
-| captureSubscription (retry now) | `paypal_actions`, `claim_key = capture:<failure_id>` | unique index `paypal_actions_claim_key_idx` | `catch` on Postgres code `23505` in `claimAction`, which then returns the winner's row | `src/server/paypal/actions.ts` `claimAction` + `runAction` |
-| suspendSubscription (pause) | `claim_key = suspend:<failure_id>` | same index | same | same |
-| activateSubscription (resume) | `claim_key = activate:<failure_id>` | same index | same | same |
+| captureSubscription (retry now) | `paypal_actions`, `claim_key = retry:<failure_id>` | unique index `paypal_actions_claim_key_idx` | `catch` on Postgres code `23505` in `claimAction`, which then returns the winner's row | `src/server/paypal/actions.ts` `claimAction` + `runFix` |
+| suspendSubscription (pause) | `claim_key = pause:<failure_id>` | same index | same | same |
 | cancelSubscription | `claim_key = cancel:<failure_id>` | same index | same | same |
 | patchSubscription (lower amount) | `claim_key = lower:<failure_id>` | same index | same | same |
 | patchSubscription (forgive) | `claim_key = forgive:<failure_id>` | same index | same | same |
@@ -156,14 +155,15 @@ Every arm on the Subscriptions writes carries the same `SubscriptionError` model
 
 | Write | The operation you re-read with | The reference you search by | Where in the code | The test that fails the connection |
 | --- | --- | --- | --- | --- |
-| captureSubscription | `getSubscription` (`billingInfo.outstandingBalance.value === "0.00"` and `lastPayment.time` after the claim time) | subscription id plus the claim's `created_at` | TBD | TBD |
-| suspendSubscription | `getSubscription` (status `SUSPENDED`) | subscription id | TBD | TBD |
-| activateSubscription | `getSubscription` (status `ACTIVE`) | subscription id | TBD | TBD |
-| cancelSubscription | `getSubscription` (status `CANCELLED`) | subscription id | TBD | TBD |
-| patchSubscription (lower) | `getSubscription` (`plan.billingCycles[sequence 1]` price equals the new amount) | subscription id | TBD | TBD |
-| patchSubscription (forgive) | `getSubscription` (`outstandingBalance.value === "0.00"`) | subscription id | TBD | TBD |
-| createBillingPlan | `listBillingPlans({ productId })`, matching by `name` | product id plus plan name | TBD | TBD |
-| createSubscription | `listSubscriptions({ planIds })`, matching by `customId` | `customId = <donor_key>` | TBD | TBD |
+| captureSubscription | `getSubscription` (`billingInfo.outstandingBalance.value === "0.00"` and `lastPayment.time` after the claim time) | subscription id plus the claim's `created_at` | `src/server/paypal/actions.ts`: the `catch` in `runFix` calls `reread()`, which uses `confirmedBy("retry")` | `tests/fixes.test.ts`, "retry: a dropped capture is settled by re-reading PayPal…" and "…PayPal can't confirm stays unknown, never 'failed', and blocks a second capture" |
+| suspendSubscription | `getSubscription` (status `SUSPENDED`) | subscription id | `runFix` `catch`, then `reread()` / `confirmedBy("pause")` | `tests/fixes.test.ts`, "pause: a dropped write is re-read, and counts as done only when PayPal shows it" |
+| cancelSubscription | `getSubscription` (status `CANCELLED`) | subscription id | `runFix` `catch`, then `reread()` / `confirmedBy("cancel")` | Covered by the same path as pause. **No test of its own yet**; it is added when cancel is offered in a test rescue. |
+| patchSubscription (lower) | `getSubscription` (`plan.billingCycles[sequence 1]` price equals the new amount) | subscription id | `runFix` `catch`, then `reread()` / `confirmedBy("lower")` | `tests/fixes.test.ts`, "lower: a dropped write is re-read…" |
+| patchSubscription (forgive) | `getSubscription` (`outstandingBalance.value === "0.00"`) | subscription id | `runFix` `catch`, then `reread()` / `confirmedBy("forgive")` | `tests/fixes.test.ts`, "forgive: a dropped write is re-read…" |
+
+**Not built yet:**
+- `activateSubscription` (resume) is not offered as a fix yet.
+- The `createBillingPlan` and `createSubscription` rows are for the seed script. Their claim and re-read land with that script and will be added here then.
 
 An `AuthError` or `EncodeError` means nothing was sent. The claim is released and **no re-read happens**. A separate test checks for each of those.
 
@@ -171,9 +171,9 @@ An `AuthError` or `EncodeError` means nothing was sent. The claim is released an
 
 | Invariant | Where the legal set comes from | Enforced where | The test that proves it |
 | --- | --- | --- | --- |
-| A rescue action only acts on a subscription Lifeline holds for that organisation | the `donors` table: `paypal_subscription_id` where `org_id` is the session's org. The client sends Lifeline's own `failure_id`, never a PayPal id. | `runAction` loads the failure and donor by the session org before claiming | TBD: an unknown or other-org `failure_id` is rejected, and the faked `fetch` is never called |
-| An action must be one of the fixes offered for that failure | the `fixes` array stored on the failure row (the AI proposes fixes, code checks them against the fix set, the user approves) | `runAction`, before claiming | TBD: an action not in `fixes` is rejected, and `fetch` is never called |
-| The new amount for "lower" is greater than 0 and less than the current amount | the donor's current plan amount in the `donors` table | `runAction`, before claiming | TBD |
+| A rescue action only acts on a subscription Lifeline holds for that organisation | the `donors` table: `paypal_subscription_id` where `org_id` is the session's org. The client sends Lifeline's own `failure_id`, never a PayPal id. | `runFix` loads the failure and donor by org before claiming | same test (other-org `failure_id` → 404, no request) |
+| An action must be one of the fixes offered for that failure | the `fixes` array stored on the failure row (the AI proposes fixes, `allowedFixes()` in `src/server/ai/rescue.ts` filters them, the officer approves) | `runFix`, before claiming | `tests/fixes.test.ts`, "a fix that wasn't offered, or a rescue from another organisation, never reaches PayPal" |
+| The new amount for "lower" is greater than 0 and less than the current amount | the donor's current plan amount in the `donors` table | `runFix`, before claiming | same test (lower to $99 → 400, no request) |
 | The seed's `createSubscription.planId` is a plan Lifeline created | the `plans` table | `scripts/seed.ts` | n/a (script) |
 
 ## 1b.3 Optional request fields

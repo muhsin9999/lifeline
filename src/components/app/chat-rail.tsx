@@ -95,18 +95,21 @@ function WorkMessage({ steps, running }: { steps: TraceStep[]; running: boolean 
             </ol>
           ) : null}
           <ul className="space-y-1.5">
-            {calls.map((c, i) => {
-              const live = running && i === calls.length - 1;
-              return (
-                <m.li key={i} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} className="rounded-lg bg-muted/60 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    {live ? <LoaderIcon className="size-3.5 animate-spin text-ink-muted" /> : <CheckIcon className="size-3.5 text-recovered" />}
-                    <span className={cn("font-mono text-xs", live && "shimmer-text")}>{c.tool}</span>
-                  </div>
-                  {c.detail ? <p className="mt-0.5 pl-5.5 text-xs text-ink-muted">{c.detail}</p> : null}
-                </m.li>
-              );
-            })}
+            {calls.map((c, i) => (
+              <m.li key={i} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} className="rounded-lg bg-muted/60 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <CheckIcon className="size-3.5 text-recovered" />
+                  <span className="font-mono text-xs">{c.tool}</span>
+                </div>
+                {c.detail ? <p className="mt-0.5 pl-5.5 text-xs text-ink-muted">{c.detail}</p> : null}
+              </m.li>
+            ))}
+            {running ? (
+              <li className="flex items-center gap-2 px-3 py-1.5 text-xs">
+                <LoaderIcon className="size-3.5 animate-spin text-ink-muted" />
+                <span className="shimmer-text">{calls.length ? "Thinking about the right fix…" : "Planning…"}</span>
+              </li>
+            ) : null}
           </ul>
         </div>
       ) : null}
