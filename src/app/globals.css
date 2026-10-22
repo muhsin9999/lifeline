@@ -18,6 +18,9 @@
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-brand-tint: var(--brand-tint);
+  --color-recovered: var(--recovered);
+  --color-recovered-tint: var(--recovered-tint);
+  --color-ink-muted: var(--ink-muted);
   --color-caution: var(--caution);
   --color-caution-tint: var(--caution-tint);
   --color-risk: var(--risk);
@@ -62,22 +65,27 @@
 }
 
 :root {
-  /* Provisional tokens: the brand is chosen after the image-model design round. */
-  --paper: #f7f6f2;
-  --paper-deep: #f1efe9; /* the alternate ledger page on the landing */
+  /* Pulse brand tokens (docs/DESIGN.md) */
+  --paper: #f8f5f0;
+  --paper-deep: #f2eee7;
   --surface: #ffffff;
-  --ink: #0b1215;
-  --ink-muted: #5b6470;
-  --line: #e4e2dc;
-  --brand: #0f7b5f;
-  --brand-strong: #0b5e48;
-  --brand-tint: #e3f2ec;
-  --caution: #b45309;
-  --caution-tint: #fdf1e3;
-  --risk: #b42318;
-  --risk-tint: #fbeae8;
+  --ink: #1a1414;
+  --ink-muted: #6b625c;
+  --line: #e7e1d8;
+  --brand: #e5484d; /* coral: the heartbeat, failed gifts, the one primary action */
+  --brand-strong: #c4363b;
+  --brand-tint: #fdeceb;
+  --recovered: #3e8e6a; /* sage: only for money brought back */
+  --recovered-tint: #e8f3ed;
+  --caution: #b7791f;
+  --caution-tint: #fbf1e1;
+  --risk: var(--brand);
+  --risk-tint: var(--brand-tint);
+  --agent-shell: #ffffff;
+  --agent-visor: #141216;
+  --agent-eye: #8fe3ff;
   --focus: #2f6fed;
-  --shadow-soft: 0 1px 2px rgb(11 18 21 / 0.06), 0 8px 24px rgb(11 18 21 / 0.06);
+  --shadow-soft: 0 1px 2px rgb(26 20 20 / 0.05), 0 8px 24px rgb(26 20 20 / 0.05);
 
   /* shadcn semantic tokens mapped onto the brand */
   --background: var(--paper);
@@ -88,27 +96,27 @@
   --popover-foreground: var(--ink);
   --primary: var(--brand);
   --primary-foreground: #ffffff;
-  --secondary: #efede7;
+  --secondary: #f0ebe3;
   --secondary-foreground: var(--ink);
-  --muted: #efede7;
+  --muted: #f0ebe3;
   --muted-foreground: var(--ink-muted);
-  --accent: var(--brand-tint);
-  --accent-foreground: var(--brand-strong);
-  --destructive: var(--risk);
+  --accent: #f3eee6;
+  --accent-foreground: var(--ink);
+  --destructive: var(--brand);
   --border: var(--line);
-  --input: #d9d6ce;
+  --input: #ddd5ca;
   --ring: var(--focus);
-  --chart-1: #0f7b5f;
-  --chart-2: #4fa58a;
-  --chart-3: #9ccdbb;
-  --chart-4: #b45309;
-  --chart-5: #5b6470;
+  --chart-1: #e5484d;
+  --chart-2: #3e8e6a;
+  --chart-3: #b7791f;
+  --chart-4: #8a817a;
+  --chart-5: #c9c0b6;
   --radius: 0.625rem;
-  --sidebar: #f2f0ea;
+  --sidebar: #f4f0e9;
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e8e5dd;
+  --sidebar-accent: #ebe5dc;
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: var(--line);
   --sidebar-ring: var(--focus);
@@ -121,9 +129,9 @@
   --ink: #eef1ef;
   --ink-muted: #9aa5ad;
   --line: #263135;
-  --brand: #34b58e;
-  --brand-strong: #6fd3b2;
-  --brand-tint: #10302a;
+  --brand: #f0686c;
+  --brand-strong: #ff8f92;
+  --brand-tint: #3a1718;
   --caution: #f0a04b;
   --caution-tint: #33240f;
   --risk: #f0776b;
@@ -164,7 +172,7 @@
 }
 /* The agent's active step: a light band moves across the label while it works. */
 @utility shimmer-text {
-  background: linear-gradient(90deg, var(--ink-muted) 0%, var(--ink-muted) 40%, var(--brand) 50%, var(--ink-muted) 60%, var(--ink-muted) 100%);
+  background: linear-gradient(90deg, var(--ink-muted) 0%, var(--ink-muted) 40%, var(--ink) 50%, var(--ink-muted) 60%, var(--ink-muted) 100%);
   background-size: 250% 100%;
   background-clip: text;
   -webkit-background-clip: text;

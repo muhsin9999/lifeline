@@ -51,6 +51,24 @@ export const donors = pgTable(
   (t) => [index("donors_org_idx").on(t.orgId, t.status)],
 );
 
+// Every monthly gift PayPal charged (PAYMENT.SALE.COMPLETED, or read back from the subscription's transactions).
+// These are the beats of the giving pulse.
+export const gifts = pgTable(
+  "gifts",
+  {
+    id: id(),
+    orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
+    donorId: uuid("donor_id").notNull().references(() => donors.id, { onDelete: "cascade" }),
+    paypalTransactionId: text("paypal_transaction_id").notNull().unique(),
+    amountCents: integer("amount_cents").notNull(),
+    // Set when this gift was the one that recovered a failure.
+    recoveredFailureId: uuid("recovered_failure_id"),
+    chargedAt: timestamp("charged_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("gifts_org_idx").on(t.orgId, t.chargedAt), index("gifts_donor_idx").on(t.donorId, t.chargedAt)],
+);
+
 // One failed gift and its rescue: the agent's diagnosis, the fixes it offers, the officer's choice and the outcome.
 export const failures = pgTable(
   "failures",
@@ -172,7 +190,9 @@ export const donorsRelations = relations(donors, ({ one, many }) => ({
   org: one(orgs, { fields: [donors.orgId], references: [orgs.id] }),
   plan: one(plans, { fields: [donors.planId], references: [plans.id] }),
   failures: many(failures),
+  gifts: many(gifts),
 }));
+export const giftsRelations = relations(gifts, ({ one }) => ({ donor: one(donors, { fields: [gifts.donorId], references: [donors.id] }) }));
 export const failuresRelations = relations(failures, ({ one, many }) => ({
   org: one(orgs, { fields: [failures.orgId], references: [orgs.id] }),
   donor: one(donors, { fields: [failures.donorId], references: [donors.id] }),
