@@ -37,7 +37,11 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
   const note = r.notes[0] ?? null;
   const steps = r.trace ?? [];
   const messages: RailMessage[] = steps.length ? [{ kind: "work", steps, running: working }] : [{ kind: "text", text: working ? `Looking into ${first}'s failed gift…` : `Nothing to show for this rescue yet.` }];
-  if (!working && r.diagnosis) messages.push({ kind: "text", text: `${r.diagnosis.summary}\n\nI suggest: ${r.recommendedFix === "note" ? `a short note to ${first}` : "the fix on the left"}. Nothing happens until you approve it.` });
+  if (!working && r.diagnosis)
+    messages.push({
+      kind: "text",
+      text: r.status === "awaiting_approval" ? `Fix ready: ${r.recommendedFix === "note" ? `a short note to ${first}` : (FIXES[r.recommendedFix as FixId]?.label.toLowerCase() ?? "see the page")}. Nothing happens until you approve it.` : `Done. I'll keep watching ${first}'s gifts.`,
+    });
 
   return (
     <>
