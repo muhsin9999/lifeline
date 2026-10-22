@@ -65,7 +65,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
           </header>
 
           {working ? (
-            <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-muted-foreground shadow-soft">Lifeline AI is looking into this. The fix appears here when it's ready.</p>
+            <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-muted-foreground shadow-soft">Lifeline AI is looking into this. The fix appears here when it&apos;s ready.</p>
           ) : r.diagnosis ? (
             <>
               <p className="px-1 text-[15px] leading-relaxed text-pretty">{r.diagnosis.summary}</p>
