@@ -61,7 +61,7 @@ Every operation:
 | `patchSubscription` | `Subscriptions.PatchSubscriptionRequest` | `PATCH /v1/billing/subscriptions/{id}` | `undefined` | `.asApiResult()` |
 | `searchTransactions` | `TransactionSearch.SearchTransactionsRequest` | `GET /v1/reporting/transactions` | `SearchResponse` | await |
 
-Five operations return `undefined`: suspend, activate, cancel, patch and createBillingPlan's siblings (not used). Each used one is called in `.asApiResult()` mode, chosen when the code is written, so its success status can be seen.
+Four of the operations in scope return `undefined`: suspend, activate, cancel and patch. Each is called in `.asApiResult()` mode, chosen when the code is written, so its success status can be seen.
 
 ### Request fields (channel, wire name, required, default)
 
