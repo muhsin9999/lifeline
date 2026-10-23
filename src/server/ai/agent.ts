@@ -92,7 +92,9 @@ export async function runAgent<T>(opts: {
         args = JSON.parse(call.arguments || "{}");
         output = call.name === "write_plan" ? { ok: true } : tool ? await tool.run(args) : { error: "unknown_tool", message: `Unknown tool ${call.name}` };
       } catch (e) {
-        output = { error: "tool_failed", message: e instanceof Error ? e.message : "Tool failed" };
+        // Internals (SQL, stack traces) stay in the server log; the model and the officer see a plain message.
+        console.error(`tool ${call.name} failed`, e);
+        output = { error: "tool_failed", message: "Couldn't read this just now" };
       }
       used.push(call.name);
       if (call.name === "write_plan") {

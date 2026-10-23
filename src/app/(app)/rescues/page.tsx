@@ -84,6 +84,7 @@ async function Rescues() {
       </main>
       <ChatRail
         mood={needs.length ? (ready.length ? "happy" : "working") : "idle"}
+        suggestions={["Who needs me today?", "How much have we recovered?", "How did giving go this month?"]}
         messages={[{ kind: "text", text: brief, chips: needs[0] ? [{ label: `Open ${needs[0].donor.name.split(" ")[0]}'s rescue`, href: `/rescues/${needs[0].id}` }] : [] }]}
       />
     </>

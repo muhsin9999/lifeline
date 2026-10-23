@@ -10,7 +10,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <MotionConfig reducedMotion="user" transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}>
         <TooltipProvider>
           {children}
-          <Toaster position="bottom-right" theme="light" mobileOffset={{ bottom: 88 }} />
+          <Toaster position="top-center" theme="light" mobileOffset={{ bottom: 88 }} />
         </TooltipProvider>
       </MotionConfig>
     </LazyMotion>

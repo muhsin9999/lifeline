@@ -94,7 +94,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
           )}
         </div>
       </main>
-      <ChatRail mood={working ? "working" : "happy"} status={working ? `Working on ${first}'s rescue…` : r.status === "awaiting_approval" ? "Fix ready for your approval" : "Rescue handled"} messages={messages} />
+      <ChatRail mood={working ? "working" : "happy"} status={working ? `Working on ${first}'s rescue…` : r.status === "awaiting_approval" ? "Fix ready for your approval" : "Rescue handled"} messages={messages} suggestions={[`What else do we know about ${first}?`, "Who else is at risk?"]} />
     </>
   );
 }

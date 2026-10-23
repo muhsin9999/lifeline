@@ -32,3 +32,18 @@ export function fakeRescueClient(first: string): OpenAI {
   };
   return { responses: { parse } } as unknown as OpenAI;
 }
+
+/** Local stand-in for "Ask Lifeline": plans, reads the numbers and open rescues, then answers from a template. */
+export function fakeAskClient(): OpenAI {
+  let turn = 0;
+  const call = (name: string, args: object = {}) => ({ type: "function_call", name, call_id: `${name}-${Math.random()}`, arguments: JSON.stringify(args) });
+  const usage = { input_tokens: 0, output_tokens: 0, input_tokens_details: { cached_tokens: 0 } };
+  const parse = async () => {
+    const t = turn++;
+    await wait(1200);
+    if (t === 0) return { id: "fa-0", usage, output: [call("write_plan", { steps: ["Read this month's numbers", "Check the open rescues"] })] };
+    if (t === 1) return { id: "fa-1", usage, output: [call("get_kpis"), call("list_rescues", { status: "open" })] };
+    return { id: "fa-2", usage, output: [{ type: "message", content: [] }], output_parsed: { answer: "Local stand-in for the AI: I read the headline numbers and the open rescues. Ask again with AI on for a real answer.", links: [] } };
+  };
+  return { responses: { parse } } as unknown as OpenAI;
+}
