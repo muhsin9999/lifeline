@@ -37,7 +37,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
   const note = r.notes[0] ?? null;
   const steps = r.trace ?? [];
   const aiSteps = steps.filter((x) => x.tool !== "fallback");
-  const messages: RailMessage[] = aiSteps.length > 1 || working ? [{ kind: "work", steps: aiSteps, running: working }] : [{ kind: "text", text: working ? `Looking into ${first}'s failed gift…` : `Nothing to show for this rescue yet.` }];
+  const messages: RailMessage[] = aiSteps.length > 1 || working ? [{ kind: "work", steps: aiSteps, running: working }] : [];
   if (!working && r.diagnosis)
     messages.push({
       kind: "text",

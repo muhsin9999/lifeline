@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { db, schema } from "@/db";
 import { FIXES, type FixId } from "@/lib/fixes";
 import { diagnose } from "@/server/ai/rescue";
 import { runFix, type FixResult } from "@/server/paypal/actions";
@@ -28,7 +30,9 @@ export async function approveFix(input: z.input<typeof Approve>): Promise<FixRes
 /** Runs the agent again on a rescue (after a failure, or when the officer wants a fresh look). */
 export async function lookAgain(failureId: string) {
   if (!z.uuid().safeParse(failureId).success) return;
-  await currentOrg();
+  const org = await currentOrg();
+  // Mark it now, so the page switches to its live view before the agent's first step lands.
+  await db.update(schema.failures).set({ status: "diagnosing", trace: [], error: null }).where(and(eq(schema.failures.id, failureId), eq(schema.failures.orgId, org.id)));
   after(() => diagnose(failureId).then(() => undefined));
   revalidatePath(`/rescues/${failureId}`);
 }
