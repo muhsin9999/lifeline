@@ -36,11 +36,12 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
   const working = r.status === "new" || r.status === "diagnosing";
   const note = r.notes[0] ?? null;
   const steps = r.trace ?? [];
-  const messages: RailMessage[] = steps.length ? [{ kind: "work", steps, running: working }] : [{ kind: "text", text: working ? `Looking into ${first}'s failed gift…` : `Nothing to show for this rescue yet.` }];
+  const aiSteps = steps.filter((x) => x.tool !== "fallback");
+  const messages: RailMessage[] = aiSteps.length > 1 || working ? [{ kind: "work", steps: aiSteps, running: working }] : [{ kind: "text", text: working ? `Looking into ${first}'s failed gift…` : `Nothing to show for this rescue yet.` }];
   if (!working && r.diagnosis)
     messages.push({
       kind: "text",
-      text: r.status === "awaiting_approval" ? `Fix ready: ${r.recommendedFix === "note" ? `a short note to ${first}` : (FIXES[r.recommendedFix as FixId]?.label.toLowerCase() ?? "see the page")}. Nothing happens until you approve it.` : `Done. I'll keep watching ${first}'s gifts.`,
+      text: r.error && r.status === "awaiting_approval" ? `I couldn't finish looking into ${first}'s gift, so I offered the standard fixes. Nothing happens until you approve one.` : r.status === "awaiting_approval" ? `Fix ready: ${r.recommendedFix === "note" ? `a short note to ${first}` : (FIXES[r.recommendedFix as FixId]?.label.toLowerCase() ?? "see the page")}. Nothing happens until you approve it.` : `Done. I'll keep watching ${first}'s gifts.`,
     });
 
   return (

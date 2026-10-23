@@ -79,7 +79,7 @@ function WorkMessage({ steps, running }: { steps: TraceStep[]; running: boolean 
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
       <button type="button" disabled={running} onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between px-4 py-3 text-left text-sm disabled:cursor-default">
-        <span className="font-medium">{running ? "Working on this rescue" : `Looked into it · ${calls.length} steps${secs ? ` in ${secs}s` : ""}`}</span>
+        <span className="font-medium">{running ? "Working on this rescue" : `Looked into it · ${calls.length} ${calls.length === 1 ? "step" : "steps"}${secs ? ` in ${secs}s` : ""}`}</span>
         {running ? <LoaderIcon className="size-4 animate-spin text-muted-foreground" /> : <ChevronDownIcon className={cn("size-4 text-muted-foreground transition-transform", expanded && "rotate-180")} />}
       </button>
       {expanded ? (

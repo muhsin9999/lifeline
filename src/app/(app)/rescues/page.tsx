@@ -26,11 +26,12 @@ async function Rescues() {
   const now = new Date();
   const org = await currentOrg();
   const [kpis, pulse, needs, closed] = await Promise.all([getKpis(org.id, now), getPulse(org.id, now, 90), getNeedsYou(org.id), getRecentlyClosed(org.id)]);
-  const ready = needs.filter((f) => f.status === "awaiting_approval");
+  const ready = needs.filter((f) => f.status === "awaiting_approval" && !f.error);
+  const fallback = needs.filter((f) => f.status === "awaiting_approval" && f.error);
   const hour = now.getUTCHours() + 1; // Tunde works on West Africa Time
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const brief = needs.length
-    ? `${greeting}, Tunde. ${needs.length} monthly ${needs.length === 1 ? "gift needs" : "gifts need"} you, ${money(kpis.atRisk.cents)} a month at risk.${ready.length ? ` I've looked into ${ready.length}; ${ready.length === 1 ? "a fix is" : "fixes are"} ready.` : ""}`
+    ? `${greeting}, Tunde. ${needs.length} monthly ${needs.length === 1 ? "gift needs" : "gifts need"} you, ${money(kpis.atRisk.cents)} a month at risk.${ready.length ? ` I've looked into ${ready.length}; ${ready.length === 1 ? "a fix is" : "fixes are"} ready.` : ""}${fallback.length ? ` I couldn't finish ${fallback.length === 1 ? "one" : fallback.length}, so standard fixes are waiting.` : ""}`
     : `${greeting}, Tunde. Every monthly gift went through. I'll tell you the moment one fails.`;
 
   return (
@@ -58,8 +59,8 @@ async function Rescues() {
                       <span className="ml-2 text-xs text-muted-foreground">{timeAgo(f.failedAt, now)}</span>
                     </span>
                     <span className="hidden items-center gap-2 text-xs sm:flex">
-                      <AgentAvatar calm mood={f.status === "awaiting_approval" ? "happy" : "working"} className="size-6" label="" />
-                      {f.status === "awaiting_approval" ? <span className="font-medium text-ink">Fix ready</span> : <span className="text-muted-foreground">Looking into it</span>}
+                      <AgentAvatar calm mood={f.status === "awaiting_approval" ? (f.error ? "worried" : "happy") : "working"} className="size-6" label="" />
+                      {f.status === "awaiting_approval" ? <span className="font-medium text-ink">{f.error ? "Standard fixes" : "Fix ready"}</span> : <span className="text-muted-foreground">Looking into it</span>}
                     </span>
                     <ChevronRightIcon className="size-4 text-muted-foreground" />
                   </Link>
@@ -83,7 +84,7 @@ async function Rescues() {
       </main>
       <ChatRail
         mood={needs.length ? (ready.length ? "happy" : "working") : "idle"}
-        messages={[{ kind: "text", text: brief, chips: ready[0] ? [{ label: `Open ${ready[0].donor.name.split(" ")[0]}'s rescue`, href: `/rescues/${ready[0].id}` }] : [] }]}
+        messages={[{ kind: "text", text: brief, chips: needs[0] ? [{ label: `Open ${needs[0].donor.name.split(" ")[0]}'s rescue`, href: `/rescues/${needs[0].id}` }] : [] }]}
       />
     </>
   );
