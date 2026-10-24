@@ -72,9 +72,9 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
   const all = [...messages, ...chat];
   const showSuggestions = !chat.length && suggestions.length > 0;
   return (
-    <aside className="sticky top-0 hidden h-svh w-[22rem] shrink-0 flex-col border-l border-line bg-surface/60 lg:flex">
-      <header className="flex items-center gap-3 border-b border-line px-5 py-4">
-        <AgentAvatar mood={busy ? "working" : mood} className="size-10" />
+    <aside className="sticky top-0 hidden h-svh w-[22rem] shrink-0 flex-col border-l border-line bg-paper lg:flex">
+      <header className="flex items-center gap-3 px-5 pt-5 pb-3">
+        <AgentAvatar glossy mood={busy ? "working" : mood} className="size-12" />
         <div className="min-w-0">
           <p className="text-sm font-semibold">Lifeline AI</p>
           <p className="truncate text-xs text-muted-foreground">{busy ? "Looking into your question…" : (status ?? "Your giving recovery assistant")}</p>
@@ -103,7 +103,7 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
         ) : null}
       </div>
       <form
-        className="border-t border-line p-4"
+        className="p-4"
         onSubmit={(e) => {
           e.preventDefault();
           askLifeline(draft);

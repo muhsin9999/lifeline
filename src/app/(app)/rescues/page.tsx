@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { ChevronRightIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronRightIcon } from "lucide-react";
 import { ChatRail } from "@/components/app/chat-rail";
 import { GivingPulse } from "@/components/app/giving-pulse";
 import { KpiRow } from "@/components/app/kpis";
@@ -9,7 +9,8 @@ import { AgentAvatar } from "@/components/brand/agent-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { money } from "@/lib/format";
 import { causeLabel, timeAgo } from "@/lib/labels";
-import { currentOrg, getKpis, getNeedsYou, getPulse, getRecentlyClosed, getWatching } from "@/server/queries";
+import { cn } from "@/lib/utils";
+import { currentOrg, getActivity, getKpis, getNeedsYou, getPulse, getRecentlyClosed, getWatching } from "@/server/queries";
 
 export const metadata = { title: "Rescues" };
 
@@ -25,7 +26,7 @@ async function Rescues() {
   await connection();
   const now = new Date();
   const org = await currentOrg();
-  const [kpis, pulse, needs, watching, closed] = await Promise.all([getKpis(org.id, now), getPulse(org.id, now, 90), getNeedsYou(org.id), getWatching(org.id), getRecentlyClosed(org.id)]);
+  const [kpis, pulse, needs, watching, closed, latest] = await Promise.all([getKpis(org.id, now), getPulse(org.id, now, 90), getNeedsYou(org.id), getWatching(org.id), getRecentlyClosed(org.id), getActivity(org.id, 5)]);
   const ready = needs.filter((f) => f.status === "awaiting_approval" && !f.error);
   const fallback = needs.filter((f) => f.status === "awaiting_approval" && f.error);
   const hour = now.getUTCHours() + 1; // Tunde works on West Africa Time
@@ -42,6 +43,10 @@ async function Rescues() {
     <>
       <main className="min-w-0 flex-1 px-6 py-6 lg:px-8">
         <div className="mx-auto max-w-5xl space-y-5">
+          <header>
+            <h1 className="text-xl font-semibold tracking-tight">Rescues</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">{new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Africa/Lagos" }).format(now)} · monthly gifts that failed, and what Lifeline is doing about them</p>
+          </header>
           <KpiRow k={kpis} />
           <GivingPulse pulse={pulse} />
           <section className="rounded-2xl border border-line bg-surface shadow-soft">
@@ -101,6 +106,26 @@ async function Rescues() {
               </footer>
             ) : null}
           </section>
+
+          {latest.length ? (
+            <section className="rounded-2xl border border-line bg-surface shadow-soft">
+              <header className="flex items-baseline justify-between px-5 pt-4 pb-2">
+                <h2 className="text-sm font-semibold">Latest from PayPal</h2>
+                <Link href="/activity" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-ink">
+                  All activity <ArrowRightIcon className="size-3" />
+                </Link>
+              </header>
+              <ol className="divide-y divide-line">
+                {latest.map((e) => (
+                  <li key={e.id} className="flex items-center gap-3 px-5 py-2.5">
+                    {e.source === "paypal" ? <span className={cn("size-1.5 shrink-0 rounded-full", e.type.endsWith("PAYMENT.FAILED") ? "bg-brand" : e.type === "PAYMENT.SALE.COMPLETED" ? "bg-recovered" : "bg-ink-muted")} /> : <AgentAvatar calm still mood="happy" className="size-4" label="" />}
+                    <span className="min-w-0 flex-1 truncate text-sm">{e.summary}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{timeAgo(e.occurredAt, now)}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
         </div>
       </main>
       <ChatRail
