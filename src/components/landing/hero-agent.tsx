@@ -14,7 +14,9 @@ const STEP_MS = 1100;
 
 type Phase = { step: number; fix: boolean; sent: boolean };
 
-export function HeroAgent() {
+// `onSentChange` tells the page when the note goes out (and when a replay resets it), so the heartbeat around the
+// card can come back to life.
+export function HeroAgent({ onSentChange }: { onSentChange?: (sent: boolean) => void }) {
   const reduce = useReducedMotion();
   const [run, setRun] = useState(0);
   const [phase, setPhase] = useState<Phase>({ step: 0, fix: false, sent: false });
@@ -51,7 +53,7 @@ export function HeroAgent() {
   const mood: AgentMood = phase.sent ? "happy" : working ? "working" : phase.fix ? "idle" : "thinking";
 
   return (
-    <div className="relative w-full max-w-[400px] sm:w-[400px]">
+    <div className="relative w-full max-w-[380px] sm:w-[380px]">
       <div aria-hidden className="absolute inset-x-10 top-16 h-48 rounded-full bg-brand/15 blur-3xl" />
       <div className="relative rounded-2xl border border-line bg-surface p-5 shadow-[0_1px_2px_rgb(26_20_20/0.05),0_24px_60px_-12px_rgb(26_20_20/0.18)]">
         <div className="flex items-center justify-between">
@@ -59,9 +61,9 @@ export function HeroAgent() {
           <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] text-ink-muted">PayPal · Sandbox</span>
         </div>
 
-        <div ref={face} className="relative mx-auto mt-2 grid size-40 place-items-center">
+        <div ref={face} className="relative mx-auto mt-1 grid size-32 place-items-center">
           <div aria-hidden className="absolute inset-4 rounded-full bg-brand/25 blur-2xl" />
-          <AgentAvatar glossy mood={mood} gaze={working ? undefined : gaze} milestone={phase.sent ? "sent" : "done"} className="relative size-36" />
+          <AgentAvatar glossy mood={mood} gaze={working ? undefined : gaze} milestone={phase.sent ? "sent" : "done"} className="relative size-28" />
         </div>
 
         <ol className="mt-4 space-y-2.5" aria-label="What Lifeline checked">
@@ -96,7 +98,10 @@ export function HeroAgent() {
                       <Check className="size-4" strokeWidth={3} /> Note sent to Cora
                     </m.div>
                   ) : (
-                    <m.button key="approve" type="button" whileTap={{ scale: 0.98 }} onClick={() => setPhase((p) => ({ ...p, sent: true }))} className="mt-4 h-11 w-full rounded-lg bg-brand text-sm font-semibold text-white transition-colors hover:bg-brand-strong">
+                    <m.button key="approve" type="button" whileTap={{ scale: 0.98 }} onClick={() => {
+                        setPhase((p) => ({ ...p, sent: true }));
+                        onSentChange?.(true);
+                      }} className="mt-4 h-11 w-full rounded-lg bg-brand text-sm font-semibold text-white transition-colors hover:bg-brand-strong">
                       Approve
                     </m.button>
                   )}
@@ -114,6 +119,7 @@ export function HeroAgent() {
         <span>Replay of a real rescue in our PayPal sandbox</span>
         <button type="button" onClick={() => {
             setPhase({ step: 0, fix: false, sent: false });
+            onSentChange?.(false);
             setRun((r) => r + 1);
           }} className="inline-flex items-center gap-1 rounded hover:text-ink">
           <RotateCcw className="size-3" /> Replay

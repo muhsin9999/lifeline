@@ -1,7 +1,7 @@
 "use client";
 
 import { m, useInView } from "motion/react";
-import { Check } from "lucide-react";
+import { Check, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AgentAvatar } from "@/components/brand/agent-avatar";
 import { cn } from "@/lib/utils";
@@ -21,13 +21,32 @@ function Segment({ tone, delay, on }: { tone: "fail" | "plan" | "ok"; delay: num
 
 function Frame({ on, delay, children, className }: { on: boolean; delay: number; children: React.ReactNode; className?: string }) {
   return (
-    <m.div initial={{ opacity: 0, y: 14 }} animate={on ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.45, delay }} className={cn("w-full rounded-2xl border border-line bg-surface p-5 shadow-soft", className)}>
+    <m.div initial={{ opacity: 0, y: 14 }} animate={on ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.45, delay }} className={cn("w-full rounded-2xl border border-line bg-surface p-5 shadow-soft md:flex md:min-h-28 md:flex-col md:justify-center", className)}>
       {children}
     </m.div>
   );
 }
 
+// The section title and its Replay sit here so Replay can restart the strip (a new key remounts it).
 export function RescueStory() {
+  const [run, setRun] = useState(0);
+  return (
+    <div>
+      <div className="mx-auto max-w-6xl px-4 text-center sm:px-8">
+        <h2 className="text-3xl font-bold tracking-[-0.03em] sm:text-4xl">How a rescue works</h2>
+        <p className="mx-auto mt-3 max-w-md text-ink-muted">From a failed payment to a donor still giving, with you approving every step.</p>
+        <button type="button" onClick={() => setRun((r) => r + 1)} className="mt-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
+          <RotateCcw className="size-3.5" /> Replay
+        </button>
+      </div>
+      <div className="mt-12">
+        <Strip key={run} />
+      </div>
+    </div>
+  );
+}
+
+function Strip() {
   const ref = useRef<HTMLDivElement>(null);
   const on = useInView(ref, { once: true, margin: "-120px" });
   const [saved, setSaved] = useState(false);
@@ -50,14 +69,16 @@ export function RescueStory() {
       </div>
       <p className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-ink-muted">Monthly gift · PayPal</p>
     </Frame>,
-    <Frame key="plan" on={on} delay={1.5} className="text-center">
-      <span className="font-semibold text-ink">Lifeline&apos;s plan</span>
-      <div className="mx-auto mt-2 grid size-20 place-items-center">
-        <AgentAvatar glossy mood={saved ? "happy" : on ? "thinking" : "idle"} milestone="saved" className="size-18" label="" />
+    <Frame key="plan" on={on} delay={1.5}>
+      <div className="flex items-center gap-3">
+        <AgentAvatar glossy mood={saved ? "happy" : on ? "thinking" : "idle"} milestone="saved" className="size-12 shrink-0" label="" />
+        <div className="min-w-0">
+          <span className="font-semibold text-ink">Lifeline&apos;s plan</span>
+          <p className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-recovered-tint px-2.5 py-1 text-xs whitespace-nowrap text-recovered">
+            <Check className="size-3" strokeWidth={3} /> You approve one fix
+          </p>
+        </div>
       </div>
-      <p className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-paper px-3 py-2 text-sm text-ink">
-        <Check className="size-3.5 text-recovered" strokeWidth={3} /> You approve one fix
-      </p>
     </Frame>,
     <Frame key="ok" on={on} delay={2.5}>
       <div className="flex items-center gap-2">
@@ -70,13 +91,13 @@ export function RescueStory() {
   const tones = ["fail", "plan", "ok", "ok"] as const;
 
   return (
-    <div ref={ref} className="flex flex-col items-center gap-10 md:flex-row md:items-start md:gap-0">
+    <div ref={ref} data-flow="story" data-flow-y={56} className="flex flex-col items-center gap-10 px-4 md:flex-row md:items-start md:gap-0 md:px-6 lg:px-12">
       {cards.map((card, i) => (
         <div key={i} className="contents">
-          <div className="hidden flex-1 pt-8 md:block">
+          <div className="hidden flex-1 pt-6 md:block">
             <Segment tone={tones[i]} delay={i} on={on} />
           </div>
-          <div className="flex w-full max-w-72 flex-col items-center md:w-60 md:shrink-0">
+          <div className="flex w-full max-w-72 flex-col items-center md:w-64 md:shrink-0">
             {card}
             <p className="mt-6 font-semibold text-ink">
               <span className="text-ink-muted tabular-nums">{i + 1}.</span> {steps[i][0]}
@@ -85,7 +106,7 @@ export function RescueStory() {
           </div>
         </div>
       ))}
-      <div className="hidden flex-1 pt-8 md:block">
+      <div className="hidden flex-1 pt-6 md:block">
         <Segment tone="ok" delay={3} on={on} />
       </div>
     </div>
