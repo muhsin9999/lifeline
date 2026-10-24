@@ -10,7 +10,7 @@ import { z } from "zod";
 import { db, schema as s } from "@/db";
 import { day, money } from "@/lib/format";
 import type { FixId } from "@/lib/fixes";
-import { causeLabel } from "@/lib/labels";
+import { causeLabel, plainWords } from "@/lib/labels";
 import { outcomeOf } from "../paypal/errors";
 import { paypalSdk } from "../paypal/sdk";
 import { runAgent, type AgentStep, type AgentTool } from "./agent";
@@ -21,7 +21,7 @@ const FIX_IDS = ["note", "retry", "pause", "lower", "forgive", "cancel"] as cons
 
 const Rescue = z.object({
   cause: z.enum(["payment_problem", "donor_choice", "paypal_account_issue", "unclear"]).describe("payment_problem: PayPal couldn't take money the donor meant to give. donor_choice: the donor acted (cancelled, paused). paypal_account_issue: a PayPal limit or restriction on either side."),
-  summary: z.string().describe("One or two plain sentences for the fundraising officer: what happened and why you think so. Only facts from the tools."),
+  summary: z.string().describe("One or two plain sentences for the fundraising officer: what happened and why you think so. Only facts from the tools. No PayPal codes or field names."),
   confidence: z.enum(["high", "medium", "low"]),
   fixes: z.array(z.enum(FIX_IDS)).describe("Every fix that makes sense here, best first."),
   recommended: z.enum(FIX_IDS),
@@ -34,7 +34,8 @@ const INSTRUCTIONS = `You help Tunde, the fundraising officer at a small food ba
 Rules:
 - Plan first: your first call is write_plan with 3 to 5 short steps (under 12 words each) that name this donor and what you expect to check.
 - Use the tools before deciding. Request several in one turn when you can.
-- PayPal never shows the nonprofit a donor's card or bank. Never say a card expired or was removed; say what PayPal reported (its reason code) and what the giving history shows.
+- PayPal never shows the nonprofit a donor's card or bank. Never say a card expired or was removed; say what PayPal reported and what the giving history shows.
+- Write for a fundraiser, not an engineer: plain words only. Never write PayPal codes or field names (PAYER_CANNOT_PAY, ACTIVE, outstanding_balance); say "the payment was declined", "her gift is still on", "$1 is owed". Dates like "Oct 24", amounts like "$1".
 - Fixes: note (ask the donor to update their payment in PayPal; PayPal retries on its own), retry (charge what is owed now), pause, lower (smaller monthly amount), forgive (clear what is owed), cancel (only if the donor asked to stop).
 - Prefer the gentlest fix that keeps the donor. A long-time donor with one failure: note first. Several failures in a row: suggest lowering or pausing. Only include retry and forgive when PayPal shows money owed.
 - The note goes to a real person: warm, specific to their history, under 90 words, no guilt, signed "Tunde, Larkhaven Food Bank". Plain text.
@@ -101,7 +102,7 @@ function tools(c: CaseFile, client: () => PaypalClient): AgentTool[] {
         const x = (await getSub()) as { last_failed?: { reason: string | null; time: string; next_retry: string | null } | null };
         return { amount: money(c.failure.amountCents), failed_at: c.failure.failedAt.toISOString(), reason_code: x.last_failed?.reason ?? c.failure.reasonCode, reason: causeLabel(x.last_failed?.reason ?? c.failure.reasonCode), paypal_retries_at: x.last_failed?.next_retry ?? c.failure.nextRetryAt?.toISOString() ?? null };
       },
-      detail: (o) => (o as { reason_code?: string | null }).reason_code ?? undefined,
+      detail: (o) => (o as { reason?: string }).reason,
     },
     {
       name: "list_gifts",
@@ -167,7 +168,7 @@ export async function diagnose(failureId: string, opts: { client?: OpenAI; paypa
     const recommended = fixes.includes(r.recommended) ? r.recommended : fixes[0];
     await db
       .update(s.failures)
-      .set({ status: "awaiting_approval", diagnosis: { cause: r.cause, summary: r.summary, confidence: r.confidence }, fixes, recommendedFix: recommended })
+      .set({ status: "awaiting_approval", diagnosis: { cause: r.cause, summary: plainWords(r.summary), confidence: r.confidence }, fixes, recommendedFix: recommended })
       .where(eq(s.failures.id, failureId));
     await db.delete(s.notes).where(and(eq(s.notes.failureId, failureId), eq(s.notes.status, "draft")));
     await db.insert(s.notes).values({ failureId, to: c.donor.email, subject: r.note_subject.slice(0, 120), body: r.note_body });

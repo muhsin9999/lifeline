@@ -10,7 +10,7 @@ import { DonorHistory } from "@/components/app/donor-history";
 import { RescueActions } from "@/components/app/rescue-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { day, money } from "@/lib/format";
-import { causeLabel } from "@/lib/labels";
+import { causeLabel, plainWords } from "@/lib/labels";
 import { FIXES, type FixId } from "@/lib/fixes";
 import { currentOrg, getRescue } from "@/server/queries";
 
@@ -76,7 +76,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
             <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-muted-foreground shadow-soft">Lifeline AI is looking into this. The fix appears here when it&apos;s ready.</p>
           ) : r.status === "awaiting_approval" && r.diagnosis ? (
             <>
-              <p className="px-1 text-[15px] leading-relaxed text-pretty">{r.diagnosis.summary}</p>
+              <p className="px-1 text-[15px] leading-relaxed text-pretty">{plainWords(r.diagnosis.summary)}</p>
               {r.error ? <LookAgain failureId={r.id} /> : null}
               <RescueActions
                 failureId={r.id}

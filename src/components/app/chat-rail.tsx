@@ -6,6 +6,7 @@ import { m } from "motion/react";
 import { ArrowUpIcon, CheckIcon, ChevronDownIcon, LoaderIcon } from "lucide-react";
 import { AgentAvatar, type AgentMood } from "@/components/brand/agent-avatar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { plainWords } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 export type TraceStep = { tool: string; label: string; at: string; detail?: string; plan?: string[] };
@@ -197,7 +198,7 @@ function WorkMessage({ steps, running, about }: { steps: TraceStep[]; running: b
                   <CheckIcon className="size-3.5 text-recovered" />
                   <span className="font-mono text-xs">{c.tool}</span>
                 </div>
-                {c.detail ? <p className="mt-0.5 pl-5.5 text-xs text-ink-muted">{c.detail}</p> : null}
+                {c.detail ? <p className="mt-0.5 pl-5.5 text-xs text-ink-muted">{plainWords(c.detail)}</p> : null}
               </m.li>
             ))}
             {running ? (
