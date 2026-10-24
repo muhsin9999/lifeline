@@ -11,7 +11,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <OrgChrome />
       </Suspense>
       <div className="flex min-w-0 flex-1 pb-16 md:pb-0">{children}</div>
-      <MobileTabs />
+      <Suspense fallback={null}>
+        <MobileTabs />
+      </Suspense>
     </div>
   );
 }
