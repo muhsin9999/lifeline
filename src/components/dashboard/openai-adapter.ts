@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- AG Studio's example adapter, kept as published so it can be diffed against AG's source. */
 // Copied from AG Studio's AI quick-start example (ag-grid.com/studio, "example code - copy it into your project and
 // adapt as needed"). Lifeline points it at its own /api/studio-llm route, so the OpenAI key never reaches the browser.
 /**
