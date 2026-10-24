@@ -52,7 +52,7 @@ const beatDown = (x: number, w: number, h: number) => `M${x - w / 2},${BASE} L${
  * gift that failed, and a sage beat is a gift Lifeline recovered. Hover any day for who and how much.
  */
 export function GivingPulse({ pulse }: { pulse: Pulse }) {
-  const [range, setRange] = useState<Range>(30);
+  const [range, setRange] = useState<Range>(7);
   const [hover, setHover] = useState<number | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
@@ -90,7 +90,7 @@ export function GivingPulse({ pulse }: { pulse: Pulse }) {
           <div role="tablist" aria-label="Time range" className="flex rounded-lg bg-muted p-0.5">
             {RANGES.map((r) => (
               <button key={r} role="tab" aria-selected={range === r} onClick={() => setRange(r)} className={cn("h-7 rounded-md px-2.5 text-xs tabular-nums text-ink-muted", range === r && "bg-surface font-medium text-ink shadow-sm")}>
-                {r}d
+                {r} days
               </button>
             ))}
           </div>

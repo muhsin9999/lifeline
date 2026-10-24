@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
 import { ChatRail } from "@/components/app/chat-rail";
+import { CopyButton } from "@/components/app/copy-button";
 import { DonorHistory } from "@/components/app/donor-history";
 import { Skeleton } from "@/components/ui/skeleton";
 import { day, money } from "@/lib/format";
@@ -89,11 +90,26 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
             <h2 className="px-5 pt-4 pb-2 text-sm font-semibold">Gifts</h2>
             <ul className="divide-y divide-line">
               {[...d.gifts].reverse().map((g) => (
-                <li key={g.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-                  <span className="w-16 text-xs text-muted-foreground tabular-nums">{day(g.chargedAt)}</span>
-                  <span className="flex-1 tabular-nums">{money(g.amountCents)}</span>
-                  {g.recoveredFailureId ? <span className="rounded-full bg-recovered-tint px-2 py-0.5 text-xs text-recovered">Recovered by Lifeline</span> : null}
-                  <span className="font-mono text-[11px] text-muted-foreground">{g.paypalTransactionId}</span>
+                <li key={g.id}>
+                  {/* The PayPal transaction ID only matters for looking a payment up in PayPal, so it sits one click in. */}
+                  <details className="group">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-2.5 text-sm hover:bg-paper/60 [&::-webkit-details-marker]:hidden">
+                      <span className="w-24 text-xs text-muted-foreground tabular-nums">{day(g.chargedAt)}</span>
+                      <span className="flex-1 tabular-nums">{money(g.amountCents)}</span>
+                      {g.recoveredFailureId ? <span className="rounded-full bg-recovered-tint px-2 py-0.5 text-xs text-recovered">Recovered by Lifeline</span> : null}
+                      <ChevronRightIcon className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                    </summary>
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-paper/50 px-5 py-3 text-xs">
+                      <span className="text-muted-foreground">
+                        Charged {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" }).format(g.chargedAt)}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-muted-foreground">PayPal transaction ID</span>
+                        <span className="font-mono text-[11px] text-ink">{g.paypalTransactionId}</span>
+                        <CopyButton value={g.paypalTransactionId} label="PayPal transaction ID" />
+                      </span>
+                    </div>
+                  </details>
                 </li>
               ))}
               {!d.gifts.length ? <li className="px-5 py-6 text-center text-sm text-muted-foreground">No gifts yet.</li> : null}

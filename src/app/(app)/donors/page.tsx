@@ -75,11 +75,11 @@ async function Donors({ searchParams }: { searchParams: Promise<Record<string, s
           <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
             <div className="hidden grid-cols-[minmax(0,1.6fr)_6rem_7rem_6rem_6rem_6rem_1rem] gap-3 border-b border-line px-5 py-2.5 text-xs text-muted-foreground md:grid">
               <span>Donor</span>
-              <span>Last gifts</span>
+              <span>Recent giving</span>
               <span>Status</span>
               <span>Since</span>
               <span>Last gift</span>
-              <span className="text-right">Given</span>
+              <span className="text-right">Total given</span>
               <span />
             </div>
             <ul className="divide-y divide-line">
@@ -94,7 +94,10 @@ async function Donors({ searchParams }: { searchParams: Promise<Record<string, s
                     <span className="hidden md:block"><Status d={d} /></span>
                     <span className="hidden text-xs text-muted-foreground tabular-nums md:block">{d.startedAt ? new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(d.startedAt) : "—"}</span>
                     <span className="hidden text-xs text-muted-foreground tabular-nums md:block">{day(d.lastPaymentAt) ?? "—"}</span>
-                    <span className="hidden text-right text-sm tabular-nums md:block">{money(d.givenCents)}</span>
+                    <span className="hidden text-right md:block">
+                      <span className="block text-sm tabular-nums">{money(d.givenCents)}</span>
+                      <span className="block text-xs text-muted-foreground tabular-nums">{d.giftCount} {d.giftCount === 1 ? "gift" : "gifts"}</span>
+                    </span>
                     <ChevronRightIcon className="size-4 text-muted-foreground" />
                   </Link>
                 </li>

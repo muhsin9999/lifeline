@@ -9,11 +9,14 @@ export function PulseMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo({ className }: { className?: string }) {
+// The heartbeat always comes first, then the wordmark. `size` scales both together so every placement matches.
+export function Logo({ className, size = "md" }: { className?: string; size?: "sm" | "md" | "lg" }) {
+  const text = { sm: "text-base", md: "text-[1.45rem]", lg: "text-[1.6rem]" }[size];
+  const mark = { sm: "h-4 w-8", md: "h-6 w-11", lg: "h-7 w-12" }[size];
   return (
-    <span className={cn("inline-flex items-center gap-1.5", className)}>
-      <span className="text-[1.35rem] font-bold tracking-[-0.035em] text-ink">Lifeline</span>
-      <PulseMark />
+    <span className={cn("inline-flex items-center gap-2", className)}>
+      <PulseMark className={mark} />
+      <span className={cn(text, "font-bold tracking-[-0.035em] text-ink")}>Lifeline</span>
     </span>
   );
 }

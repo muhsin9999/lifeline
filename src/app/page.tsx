@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { PulseMark } from "@/components/brand/logo";
+import { Logo } from "@/components/brand/logo";
 import { HeroAgent } from "@/components/landing/hero-agent";
 import { HeroLine } from "@/components/landing/hero-line";
 import { RescueStory } from "@/components/landing/rescue-story";
@@ -12,9 +12,8 @@ export default function Landing() {
   return (
     <div className="min-h-svh overflow-x-clip bg-paper text-ink">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-8">
-        <Link href="/" className="inline-flex items-center gap-2" aria-label="Lifeline home">
-          <PulseMark className="h-5 w-9" />
-          <span className="text-xl font-bold tracking-[-0.035em]">Lifeline</span>
+        <Link href="/" aria-label="Lifeline home">
+          <Logo size="lg" />
         </Link>
         <nav className="flex items-center gap-1 text-sm sm:gap-4">
           <a href="#how" className="hidden rounded-md px-2 py-1.5 text-ink-muted hover:text-ink sm:inline">
@@ -71,9 +70,7 @@ export default function Landing() {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <span className="inline-flex items-center gap-1.5 font-semibold text-ink">
-            Lifeline <PulseMark className="h-3.5 w-7" />
-          </span>
+          <Logo size="sm" />
           <span>PayPal sandbox only. Larkhaven Food Bank and its donors are fictional; no real money moves.</span>
         </div>
       </footer>
