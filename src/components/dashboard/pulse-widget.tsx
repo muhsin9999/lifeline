@@ -16,11 +16,13 @@ type Beat = { t: number; given: number; failed: number };
 const W = 1000;
 const H = 140;
 const BASE = 78;
-const WINDOW = 60 * 86_400_000; // the strip always shows the last 60 days, ending today
+const DAY = 86_400_000;
+const LONGEST = 60 * DAY; // the strip ends today and reaches back to the first gift, between 14 and 60 days
+const SHORTEST = 14 * DAY;
 
 export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidgetDef>) {
   const [beats, setBeats] = useState<Beat[] | null>(null);
-  const [from, setFrom] = useState(0);
+  const [win, setWin] = useState({ from: 0, to: 1 });
   const loaded = useRef(false);
 
   useEffect(() => {
@@ -54,10 +56,13 @@ export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidg
         const b = at(r[day.key]);
         if (b) b.failed += Number(r[failed!.key] ?? 0);
       }
-      // The strip shows the latest 60 days, where a heartbeat is readable.
+      // The strip fits the data: from the first gift (at most 60 days back, at least 14) to today, so a young
+      // account's few beats aren't squeezed into one corner.
       const all = [...byDay.values()].sort((a, b) => a.t - b.t);
-      const cutoff = Date.now() - WINDOW;
-      setFrom(cutoff);
+      const now = Date.now();
+      const first = all.find((b) => b.given || b.failed)?.t ?? now;
+      const cutoff = Math.max(now - LONGEST, Math.min(first - DAY, now - SHORTEST));
+      setWin({ from: cutoff, to: now });
       const rows = all.filter((b) => b.t >= cutoff);
       loaded.current = true;
       setBeats(rows);
@@ -69,8 +74,8 @@ export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidg
   }, [dataMapping, widgetApi]);
 
   if (!beats?.length) return null;
-  const t0 = from;
-  const span = WINDOW;
+  const t0 = win.from;
+  const span = win.to - win.from;
   const max = Math.max(1, ...beats.map((b) => Math.max(b.given, b.failed)));
   const x = (t: number) => 20 + ((t - t0) / span) * (W - 40);
   const h = (v: number, room: number) => (v ? 8 + Math.sqrt(v / max) * (room - 8) : 0);
