@@ -113,3 +113,51 @@ export async function getRescue(orgId: string, id: string) {
   return failure ?? null;
 }
 export type Rescue = NonNullable<Awaited<ReturnType<typeof getRescue>>>;
+
+/** Every donor with their gift count, last gifts (for the mini heartbeat) and any open rescue. */
+export async function getDonors(orgId: string) {
+  const donors = await db.query.donors.findMany({
+    where: eq(s.donors.orgId, orgId),
+    with: { gifts: { orderBy: desc(s.gifts.chargedAt), limit: 12, columns: { chargedAt: true, amountCents: true, recoveredFailureId: true } }, failures: { orderBy: desc(s.failures.failedAt), columns: { id: true, status: true, failedAt: true } } },
+    orderBy: asc(s.donors.name),
+  });
+  const counts = await db
+    .select({ donorId: s.gifts.donorId, n: sql<number>`count(*)::int`, cents: sql<number>`sum(${s.gifts.amountCents})::int` })
+    .from(s.gifts)
+    .where(eq(s.gifts.orgId, orgId))
+    .groupBy(s.gifts.donorId);
+  const byDonor = new Map(counts.map((c) => [c.donorId, c]));
+  return donors.map((d) => {
+    const open = d.failures.find((f) => (OPEN as readonly string[]).includes(f.status)) ?? null;
+    return { ...d, giftCount: byDonor.get(d.id)?.n ?? 0, givenCents: byDonor.get(d.id)?.cents ?? 0, openRescue: open, recentGifts: [...d.gifts].reverse() };
+  });
+}
+export type DonorRow = Awaited<ReturnType<typeof getDonors>>[number];
+
+export async function getDonor(orgId: string, id: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  return (
+    (await db.query.donors.findFirst({
+      where: and(eq(s.donors.orgId, orgId), eq(s.donors.id, id)),
+      with: { gifts: { orderBy: asc(s.gifts.chargedAt) }, failures: { orderBy: desc(s.failures.failedAt), with: { notes: { columns: { status: true, sentAt: true, subject: true } } } } },
+    })) ?? null
+  );
+}
+
+/** The timeline: PayPal's verified events and Lifeline's own milestones, newest first. */
+export async function getActivity(orgId: string, limit = 80) {
+  return db.query.events.findMany({ where: eq(s.events.orgId, orgId), orderBy: desc(s.events.occurredAt), limit, columns: { payload: false } });
+}
+
+/** Webhook deliveries over the last 30 days, by outcome. Deliveries aren't tied to an org (a forged one names none). */
+export async function getWebhookHealth(now: Date) {
+  const since = new Date(now.getTime() - 30 * 86_400_000);
+  const rows = await db
+    .select({ verification: s.webhookDeliveries.verification, n: sql<number>`count(*)::int`, last: sql<Date>`max(${s.webhookDeliveries.receivedAt})` })
+    .from(s.webhookDeliveries)
+    .where(gte(s.webhookDeliveries.receivedAt, since))
+    .groupBy(s.webhookDeliveries.verification);
+  const verified = rows.find((r) => r.verification === "SUCCESS");
+  const total = rows.reduce((t, r) => t + r.n, 0);
+  return { total, verified: verified?.n ?? 0, rejected: total - (verified?.n ?? 0), lastVerifiedAt: verified?.last ? new Date(verified.last) : null };
+}

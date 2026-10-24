@@ -20,6 +20,7 @@ const WINDOW = 60 * 86_400_000; // the strip always shows the last 60 days, endi
 
 export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidgetDef>) {
   const [beats, setBeats] = useState<Beat[] | null>(null);
+  const [from, setFrom] = useState(0);
   const loaded = useRef(false);
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidg
       // The strip shows the latest 60 days, where a heartbeat is readable.
       const all = [...byDay.values()].sort((a, b) => a.t - b.t);
       const cutoff = Date.now() - WINDOW;
+      setFrom(cutoff);
       const rows = all.filter((b) => b.t >= cutoff);
       loaded.current = true;
       setBeats(rows);
@@ -67,7 +69,7 @@ export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidg
   }, [dataMapping, widgetApi]);
 
   if (!beats?.length) return null;
-  const t0 = Date.now() - WINDOW;
+  const t0 = from;
   const span = WINDOW;
   const max = Math.max(1, ...beats.map((b) => Math.max(b.given, b.failed)));
   const x = (t: number) => 20 + ((t - t0) / span) * (W - 40);
