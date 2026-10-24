@@ -83,7 +83,7 @@ export default function Landing() {
           ))}
         </div>
         <p className="mt-10 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          A failed payment usually isn&apos;t a donor saying goodbye. It&apos;s a card that expired or a balance that ran short, and the donor often never finds out. Lifeline catches it the moment PayPal does.
+          A failed payment usually isn&apos;t a donor saying goodbye. It&apos;s a card that expired or a balance that ran short, and the donor may never find out. Lifeline catches it the moment PayPal does.
         </p>
       </section>
 
