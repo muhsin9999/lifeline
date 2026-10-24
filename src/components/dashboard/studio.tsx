@@ -1,8 +1,8 @@
 "use client";
 
-// The Lifeline dashboard, built on AG Studio: real gifts, failed gifts and donors, in the Pulse theme, with a
+// Lifeline Reports, built on AG Studio: real gifts, failed gifts and donors, in the Pulse theme, with a
 // custom heartbeat widget and AG Studio's own agents (connected through Lifeline's server) in the right panel.
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AgStudio, AgStudioProvider, createWidgets } from "ag-studio-react";
 import {
   AgStudioAiModule,
@@ -129,22 +129,21 @@ const initialState: AgReportState<Registry> = {
     {
       id: "giving",
       widgets: {
-        given: { type: "value", dataMapping: { value: [{ id: "gifts.amount", aggregation: "sum" }], sparklineX: [{ id: "calendar::day" }] }, format: { caption: { enabled: true, text: "Given" }, style: { sparkline: { type: "line" } } } },
-        failed: { type: "value", dataMapping: { value: [{ id: "failedGifts.amount", aggregation: "sum" }] }, format: { caption: { enabled: true, text: "Failed" } } },
-        recovered: { type: "value", dataMapping: { value: [{ id: "failedGifts.recovered", aggregation: "sum" }] }, format: { caption: { enabled: true, text: "Recovered" } } },
+        given: { type: "value", dataMapping: { value: [{ id: "gifts.amount", aggregation: "sum" }] }, format: { caption: { enabled: true, text: "Given, all time" } } },
+        failed: { type: "value", dataMapping: { value: [{ id: "failedGifts.amount", aggregation: "sum" }] }, format: { caption: { enabled: true, text: "Failed gifts, all time" } } },
+        recovered: { type: "value", dataMapping: { value: [{ id: "failedGifts.recovered", aggregation: "sum" }] }, format: { caption: { enabled: true, text: "Recovered by Lifeline" } } },
         donors: { type: "value", dataMapping: { value: [{ id: "donors.donor", aggregation: "countd" }] }, format: { caption: { enabled: true, text: "Monthly donors" } } },
         pulse: { type: "giving-pulse", dataMapping: { day: [{ id: "calendar::day" }], given: [{ id: "gifts.amount", aggregation: "sum" }], failed: [{ id: "failedGifts.amount", aggregation: "sum" }] }, format: { title: { enabled: true, text: "Giving pulse" } } },
         trend: {
-          type: "line-chart",
-          dataMapping: { categoryKey: [{ id: "calendar::week" }], valueKey: [{ id: "gifts.amount", aggregation: "sum" }], tooltipKey: [] },
-          sort: [{ field: { id: "calendar::week" }, direction: "asc" }],
-          format: { title: { enabled: true, text: "Given per week" } },
+          type: "column-chart-grouped",
+          dataMapping: { categoryKey: [{ id: "calendar::month" }], valueKey: [{ id: "gifts.amount", aggregation: "sum" }], tooltipKey: [] },
+          sort: [{ field: { id: "calendar::month" }, direction: "asc" }],
+          format: { title: { enabled: true, text: "Given per month" } },
         },
         causes: {
-          type: "bar-chart-grouped",
-          dataMapping: { categoryKey: [{ id: "failedGifts.cause" }], valueKey: [{ id: "failedGifts.amount", aggregation: "sum" }], tooltipKey: [] },
-          sort: [{ field: { id: "failedGifts.amount", aggregation: "sum" }, direction: "desc" }],
-          format: { title: { enabled: true, text: "Failed gifts by cause" } },
+          type: "donut-chart",
+          dataMapping: { categoryKey: [{ id: "failedGifts.cause" }], valueKey: [{ id: "failedGifts.amount", aggregation: "count" }], tooltipKey: [] },
+          format: { title: { enabled: true, text: "Why gifts failed" } },
         },
         rescues: {
           type: "grid",
@@ -214,24 +213,40 @@ const ai: AgAiHarnessSetup = ({ api }) =>
     ],
   }));
 
+// Opens as a finished report with the AI chat ready; the builder panels (filters, widget editing, data) only
+// appear when the officer asks to customize. AG Studio's chat lives in edit mode, so the report stays in it.
 export default function Studio({ data }: { data: StudioData }) {
+  const [customize, setCustomize] = useState(false);
   const def = useMemo(() => definition(data), [data]);
   const modules = useMemo(() => [AgStudioAiModule], []);
   const aiSetup = useMemo(() => ai, []);
   return (
-    <AgStudioProvider modules={modules} licenseKey={process.env.NEXT_PUBLIC_AG_STUDIO_LICENSE}>
-      <AgStudio<Registry>
-        data={def}
-        mode="edit"
-        theme={theme}
-        initialState={initialState}
-        widgets={widgets}
-        ai={aiSetup}
-        panels={{ edit: { left: ["filters", "edit", "data"], right: ["ai"] } }}
-        layout={{ minWidth: 560 }}
-        localeText={{ panelTitleAi: "Lifeline AI", aiMessageInputPlaceholder: "Ask about your giving…" }}
-        style={{ height: "100%", width: "100%" }}
-      />
-    </AgStudioProvider>
+    <div className="flex h-full flex-col">
+      <header className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-1 lg:px-8">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">Ask Lifeline AI for any chart in plain words, and it builds it here.</p>
+        </div>
+        <button type="button" aria-pressed={customize} onClick={() => setCustomize((c) => !c)} className="h-8 rounded-lg border border-line bg-surface px-3 text-sm text-ink-muted shadow-soft hover:text-ink aria-pressed:bg-ink aria-pressed:text-paper">
+          {customize ? "Done customizing" : "Customize"}
+        </button>
+      </header>
+      <div className="min-h-0 flex-1">
+        <AgStudioProvider modules={modules} licenseKey={process.env.NEXT_PUBLIC_AG_STUDIO_LICENSE}>
+          <AgStudio<Registry>
+            data={def}
+            mode="edit"
+            theme={theme}
+            initialState={initialState}
+            widgets={widgets}
+            ai={aiSetup}
+            panels={{ edit: { left: customize ? ["filters", "edit", "data"] : [], right: ["ai"] } }}
+            layout={{ minWidth: 560 }}
+            localeText={{ panelTitleAi: "Lifeline AI", aiMessageInputPlaceholder: "Ask about your giving…" }}
+            style={{ height: "100%", width: "100%" }}
+          />
+        </AgStudioProvider>
+      </div>
+    </div>
   );
 }

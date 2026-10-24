@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const org = await currentOrg();
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(s.audit).where(and(eq(s.audit.orgId, org.id), eq(s.audit.kind, "ai.studio.turn"), gte(s.audit.createdAt, new Date(Date.now() - 3_600_000))));
-  if (n >= HOURLY_TURN_CAP) return Response.json({ error: { message: "The dashboard assistant has been busy this hour. Try again in a little while." } }, { status: 429 });
+  if (n >= HOURLY_TURN_CAP) return Response.json({ error: { message: "The reports assistant has been busy this hour. Try again in a little while." } }, { status: 429 });
   await db.insert(s.audit).values({ orgId: org.id, kind: "ai.studio.turn", model: modelFor("studio") });
 
   const upstream = await fetch("https://api.openai.com/v1/responses", {
