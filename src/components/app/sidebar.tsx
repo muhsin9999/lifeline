@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ActivityIcon, BarChart3Icon, HeartPulseIcon, UsersIcon } from "lucide-react";
+import { ActivityIcon, ArrowLeftIcon, BarChart3Icon, HeartPulseIcon, NetworkIcon, UsersIcon } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ export function Sidebar({ orgName }: { orgName: string }) {
   const pathname = usePathname();
   return (
     <aside className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-r border-line bg-sidebar px-3 py-5 md:flex">
-      <Link href="/rescues" aria-label="Lifeline home" className="rounded-md px-2">
+      <Link href="/" aria-label="Lifeline home page" className="rounded-md px-2">
         <Logo />
       </Link>
       <p className="mt-1 px-2 text-xs text-muted-foreground">{orgName}</p>
@@ -40,7 +40,18 @@ export function Sidebar({ orgName }: { orgName: string }) {
           );
         })}
       </nav>
-      <div className="mt-auto flex items-center gap-2 px-2 text-[11px] whitespace-nowrap text-muted-foreground">
+      {/* Ways out of the app: back to the landing page, and how Lifeline is built. */}
+      <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-3">
+        <Link href="/architecture" className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-xs text-ink-muted hover:bg-sidebar-accent hover:text-ink">
+          <NetworkIcon className="size-3.5" />
+          How it&apos;s built
+        </Link>
+        <Link href="/" className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-xs text-ink-muted hover:bg-sidebar-accent hover:text-ink">
+          <ArrowLeftIcon className="size-3.5" />
+          Lifeline home
+        </Link>
+      </div>
+      <div className="mt-3 flex items-center gap-2 px-2 text-[11px] whitespace-nowrap text-muted-foreground">
         <span className="size-1.5 rounded-full bg-recovered" />
         Connected to PayPal · Sandbox
       </div>

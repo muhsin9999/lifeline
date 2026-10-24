@@ -124,6 +124,9 @@ export default function Landing() {
               <Link href="/activity" className="underline underline-offset-4 hover:text-paper">
                 Verified PayPal activity
               </Link>
+              <Link href="/architecture" className="underline underline-offset-4 hover:text-paper">
+                How it&apos;s built
+              </Link>
             </p>
           </div>
           <div className="relative mx-auto grid size-48 shrink-0 place-items-center md:mx-0">
@@ -141,7 +144,7 @@ export default function Landing() {
           </div>
           <FooterColumn title="App" links={[["Rescues", "/rescues"], ["Donors", "/donors"], ["Reports", "/reports"], ["Activity", "/activity"]]} />
           <FooterColumn title="Built with" links={[["PayPal Subscriptions", "https://developer.paypal.com/docs/subscriptions/"], ["AG Grid Studio", "https://www.ag-grid.com/studio/"], ["OpenAI", "https://platform.openai.com/docs"]]} />
-          <FooterColumn title="About" links={[["How it works", "#how"]]} />
+          <FooterColumn title="About" links={[["How it works", "#how"], ["Architecture", "/architecture"]]} />
         </div>
         <p className="mx-auto max-w-6xl px-4 pb-8 text-xs text-ink-muted sm:px-8">PayPal sandbox only. Larkhaven Food Bank and its donors are fictional; no real money moves.</p>
       </footer>
