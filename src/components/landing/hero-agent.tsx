@@ -51,7 +51,7 @@ export function HeroAgent() {
   const mood: AgentMood = phase.sent ? "happy" : working ? "working" : phase.fix ? "idle" : "thinking";
 
   return (
-    <div className="relative w-full max-w-[400px]">
+    <div className="relative w-full max-w-[400px] sm:w-[400px]">
       <div aria-hidden className="absolute inset-x-10 top-16 h-48 rounded-full bg-brand/15 blur-3xl" />
       <div className="relative rounded-2xl border border-line bg-surface p-5 shadow-[0_1px_2px_rgb(26_20_20/0.05),0_24px_60px_-12px_rgb(26_20_20/0.18)]">
         <div className="flex items-center justify-between">
