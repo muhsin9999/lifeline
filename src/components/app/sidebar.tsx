@@ -6,7 +6,7 @@ import { ActivityIcon, ArrowLeftIcon, BarChart3Icon, HeartPulseIcon, NetworkIcon
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+export const NAV = [
   { href: "/rescues", label: "Rescues", icon: HeartPulseIcon },
   { href: "/donors", label: "Donors", icon: UsersIcon },
   { href: "/reports", label: "Reports", icon: BarChart3Icon },

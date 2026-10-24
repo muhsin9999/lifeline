@@ -5,6 +5,7 @@ import Link from "next/link";
 import { m } from "motion/react";
 import { ArrowUpIcon, CheckIcon, ChevronDownIcon, LoaderIcon } from "lucide-react";
 import { AgentAvatar, type AgentMood } from "@/components/brand/agent-avatar";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 export type TraceStep = { tool: string; label: string; at: string; detail?: string; plan?: string[] };
@@ -69,10 +70,11 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
     }
   }
 
+  const [open, setOpen] = useState(false);
   const all = [...messages, ...chat];
   const showSuggestions = !chat.length && suggestions.length > 0;
-  return (
-    <aside className="sticky top-0 hidden h-svh w-[22rem] shrink-0 flex-col border-l border-line bg-paper lg:flex">
+  const body = (
+    <>
       <header className="flex items-center gap-3 px-5 pt-5 pb-3">
         <AgentAvatar glossy mood={busy ? "working" : mood} className="size-12" />
         <div className="min-w-0">
@@ -117,9 +119,26 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
           </button>
         </label>
       </form>
-    </aside>
+    </>
+  );
+  return (
+    <>
+      <aside className="sticky top-0 hidden h-svh w-[22rem] shrink-0 flex-col border-l border-line bg-paper lg:flex">{body}</aside>
+      {/* Below desktop width the rail folds into a button that opens the same conversation in a panel. */}
+      <button type="button" onClick={() => setOpen(true)} aria-label="Ask Lifeline AI" className="fixed right-4 bottom-20 z-30 flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pr-4 pl-1.5 text-sm font-medium shadow-[0_8px_24px_-8px_rgb(26_20_20/0.3)] md:bottom-6 lg:hidden">
+        <AgentAvatar glossy mood={busy ? "working" : mood} className="size-9" label="" />
+        Ask Lifeline
+      </button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="right" className="w-full gap-0 bg-paper p-0 sm:max-w-md">
+          <SheetTitle className="sr-only">Lifeline AI</SheetTitle>
+          <div className="flex h-full flex-col">{body}</div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
+
 
 function TextMessage({ text, chips, onAsk }: { text: string; chips?: Chip[]; onAsk: (q: string) => void }) {
   return (

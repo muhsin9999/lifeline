@@ -217,6 +217,9 @@ const ai: AgAiHarnessSetup = ({ api }) =>
 // appear when the officer asks to customize. AG Studio's chat lives in edit mode, so the report stays in it.
 export default function Studio({ data }: { data: StudioData }) {
   const [customize, setCustomize] = useState(false);
+  // On a phone the AI panel would cover the whole report, so it starts folded there (Studio renders only in the
+  // browser, so the width is known).
+  const [startState] = useState(() => (window.innerWidth < 768 ? { ...initialState, panels: { ...initialState.panels, ai: { collapsed: true } } } : initialState));
   const def = useMemo(() => definition(data), [data]);
   const modules = useMemo(() => [AgStudioAiModule], []);
   const aiSetup = useMemo(() => ai, []);
@@ -237,7 +240,7 @@ export default function Studio({ data }: { data: StudioData }) {
             data={def}
             mode="edit"
             theme={theme}
-            initialState={initialState}
+            initialState={startState}
             widgets={widgets}
             ai={aiSetup}
             panels={{ edit: { left: customize ? ["filters", "edit", "data"] : [], right: ["ai"] } }}

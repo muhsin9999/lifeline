@@ -85,7 +85,7 @@ async function Donors({ searchParams }: { searchParams: Promise<Record<string, s
             <ul className="divide-y divide-line">
               {rows.map((d) => (
                 <li key={d.id}>
-                  <Link href={`/donors/${d.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-3 hover:bg-paper/60 md:grid-cols-[minmax(0,1.6fr)_6rem_7rem_6rem_6rem_6rem_1rem]">
+                  <Link href={`/donors/${d.id}`} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-5 py-3 hover:bg-paper/60 md:grid-cols-[minmax(0,1.6fr)_6rem_7rem_6rem_6rem_6rem_1rem]">
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{d.name}</span>
                       <span className="block text-xs text-muted-foreground tabular-nums">Monthly gift · {money(d.amountCents)}</span>
@@ -98,6 +98,7 @@ async function Donors({ searchParams }: { searchParams: Promise<Record<string, s
                       <span className="block text-sm tabular-nums">{money(d.givenCents)}</span>
                       <span className="block text-xs text-muted-foreground tabular-nums">{d.giftCount} {d.giftCount === 1 ? "gift" : "gifts"}</span>
                     </span>
+                    <span className="md:hidden"><Status d={d} /></span>
                     <ChevronRightIcon className="size-4 text-muted-foreground" />
                   </Link>
                 </li>
