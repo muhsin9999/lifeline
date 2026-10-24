@@ -1,7 +1,7 @@
 "use client";
 
 import { m, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 
 // Lifeline's agent: a white rounded body with a black visor across the eyes, and soft glowing eyes inside it.
@@ -59,7 +59,10 @@ export function PulseRing({ className }: { className?: string }) {
 // `calm` is for lists: the eyes drift less, wait several seconds between moves and each copy keeps its own
 // timing, so a column of faces never moves in step or pulls the eye away from the text.
 // `milestone` names what was just finished (e.g. "diagnosed", "recovered"): reaching a new one celebrates again.
-export function AgentAvatar({ mood = "idle", className, still = false, calm = false, label = "Lifeline AI", milestone = "done" }: { mood?: AgentMood; className?: string; still?: boolean; calm?: boolean; label?: string; milestone?: string }) {
+// `glossy` draws the full character (shaded shell, ear pods, a gentle float) for large sizes; `gaze` lets the
+// parent steer the eyes (the landing page points them at the cursor) instead of the mood's own glances.
+export function AgentAvatar({ mood = "idle", className, still = false, calm = false, glossy = false, gaze: steer, label = "Lifeline AI", milestone = "done" }: { mood?: AgentMood; className?: string; still?: boolean; calm?: boolean; glossy?: boolean; gaze?: Gaze; label?: string; milestone?: string }) {
+  const uid = useId().replace(/:/g, "");
   const reduce = useReducedMotion();
   const moving = !still && !reduce;
   const [look, setLook] = useState(0);
@@ -97,7 +100,7 @@ export function AgentAvatar({ mood = "idle", className, still = false, calm = fa
 
   const celebrated = useCelebration(mood === "happy" && milestone);
   const looks = mood === "happy" ? [{ x: 0, y: 0 }] : LOOKS[mood];
-  const raw = moving ? looks[look % looks.length] : { x: 0, y: 0 };
+  const raw = steer && moving && mood !== "happy" ? steer : moving ? looks[look % looks.length] : { x: 0, y: 0 };
   const gaze = calm ? { x: raw.x * 0.5, y: raw.y * 0.5 } : raw;
 
   return (
@@ -111,13 +114,19 @@ export function AgentAvatar({ mood = "idle", className, still = false, calm = fa
           </filter>
         </defs>
         <m.g key={`hop-${celebrated}`} animate={celebrated && !reduce ? { y: [0, -8, 0, -2, 0] } : { y: 0 }} transition={{ duration: 0.6, ease: "easeOut" }}>
-          <m.g animate={moving && mood === "working" ? { y: [0, -1.5, 0] } : { y: 0 }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}>
-            {/* Body: a white rounded shell with a hairline edge, so it reads on paper and on white cards. */}
-            <circle cx="50" cy="50" r="48" fill="var(--agent-shell)" stroke="#e3dcd2" strokeWidth="1.5" />
-            <circle cx="50" cy="51.5" r="46" fill="none" stroke="#000" strokeOpacity="0.04" strokeWidth="3" />
-            {/* Visor: black only where the eyes are. */}
-            <rect x="17" y="33" width="66" height="34" rx="17" fill="var(--agent-visor)" />
-            <rect x="22" y="36" width="34" height="6" rx="3" fill="#fff" opacity="0.07" />
+          <m.g animate={moving && (glossy || mood === "working") ? { y: [0, glossy ? -3 : -1.5, 0] } : { y: 0 }} transition={{ duration: glossy ? 3.6 : 1.6, repeat: Infinity, ease: "easeInOut" }}>
+            {glossy ? (
+              <GlossyShell uid={uid} />
+            ) : (
+              <>
+                {/* Body: a white rounded shell with a hairline edge, so it reads on paper and on white cards. */}
+                <circle cx="50" cy="50" r="48" fill="var(--agent-shell)" stroke="#e3dcd2" strokeWidth="1.5" />
+                <circle cx="50" cy="51.5" r="46" fill="none" stroke="#000" strokeOpacity="0.04" strokeWidth="3" />
+                {/* Visor: black only where the eyes are. */}
+                <rect x="17" y="33" width="66" height="34" rx="17" fill="var(--agent-visor)" />
+                <rect x="22" y="36" width="34" height="6" rx="3" fill="#fff" opacity="0.07" />
+              </>
+            )}
             <m.g initial={false} animate={gaze} transition={calm ? { type: "spring", stiffness: 60, damping: 16 } : { type: "spring", stiffness: 200, damping: 20 }} filter="url(#lifeline-eye-glow)">
               <Eyes mood={mood} blink={blink} />
             </m.g>
@@ -125,6 +134,38 @@ export function AgentAvatar({ mood = "idle", className, still = false, calm = fa
         </m.g>
       </svg>
     </span>
+  );
+}
+
+// The full character: a shaded white sphere with ear pods, a top vent and a glossy visor.
+function GlossyShell({ uid }: { uid: string }) {
+  return (
+    <>
+      <defs>
+        <radialGradient id={`${uid}-shell`} cx="38%" cy="30%" r="75%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="62%" stopColor="#f6f4f1" />
+          <stop offset="100%" stopColor="#dcd7d1" />
+        </radialGradient>
+        <linearGradient id={`${uid}-ear`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fbfaf8" />
+          <stop offset="100%" stopColor="#cfc9c2" />
+        </linearGradient>
+        <linearGradient id={`${uid}-visor`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2a2730" />
+          <stop offset="100%" stopColor="#09080b" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="38" width="12" height="26" rx="6" fill={`url(#${uid}-ear)`} stroke="#d9d3cc" strokeWidth="0.8" />
+      <rect x="87" y="38" width="12" height="26" rx="6" fill={`url(#${uid}-ear)`} stroke="#d9d3cc" strokeWidth="0.8" />
+      <circle cx="50" cy="51" r="43" fill={`url(#${uid}-shell)`} stroke="#e1dbd4" strokeWidth="0.8" />
+      <rect x="39" y="10.5" width="22" height="6" rx="3" fill="#efece8" stroke="#dcd6cf" strokeWidth="0.8" />
+      <path d="M14 66 Q50 84 86 66" fill="none" stroke="#d8d2cb" strokeWidth="0.9" />
+      <path d="M50 75 V93" stroke="#dcd6cf" strokeWidth="0.9" />
+      <ellipse cx="36" cy="24" rx="13" ry="6" fill="#fff" opacity="0.85" transform="rotate(-18 36 24)" />
+      <rect x="19" y="34" width="62" height="32" rx="16" fill={`url(#${uid}-visor)`} />
+      <path d="M27 38 Q40 35 54 36.5" fill="none" stroke="#fff" strokeOpacity="0.16" strokeWidth="2.4" strokeLinecap="round" />
+    </>
   );
 }
 
