@@ -16,6 +16,7 @@ type Beat = { t: number; given: number; failed: number };
 const W = 1000;
 const H = 140;
 const BASE = 78;
+const WINDOW = 60 * 86_400_000; // the strip always shows the last 60 days, ending today
 
 export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidgetDef>) {
   const [beats, setBeats] = useState<Beat[] | null>(null);
@@ -54,7 +55,7 @@ export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidg
       }
       // The strip shows the latest 60 days, where a heartbeat is readable.
       const all = [...byDay.values()].sort((a, b) => a.t - b.t);
-      const cutoff = (all.at(-1)?.t ?? 0) - 60 * 86_400_000;
+      const cutoff = Date.now() - WINDOW;
       const rows = all.filter((b) => b.t >= cutoff);
       loaded.current = true;
       setBeats(rows);
@@ -66,12 +67,12 @@ export function PulseWidget({ dataMapping, widgetApi }: AgWidgetParams<PulseWidg
   }, [dataMapping, widgetApi]);
 
   if (!beats?.length) return null;
-  const t0 = beats[0].t;
-  const span = Math.max(1, beats.at(-1)!.t - t0);
+  const t0 = Date.now() - WINDOW;
+  const span = WINDOW;
   const max = Math.max(1, ...beats.map((b) => Math.max(b.given, b.failed)));
   const x = (t: number) => 20 + ((t - t0) / span) * (W - 40);
   const h = (v: number, room: number) => (v ? 8 + Math.sqrt(v / max) * (room - 8) : 0);
-  const w = Math.min(16, Math.max(5, (W - 40) / Math.max(beats.length, 1)));
+  const w = 12;
   const up = beats
     .filter((b) => b.given)
     .map((b) => `L${x(b.t) - w / 2},${BASE} L${x(b.t) - w / 4},${BASE + 3} L${x(b.t)},${BASE - h(b.given, 64)} L${x(b.t) + w / 4},${BASE + 8} L${x(b.t) + w / 2},${BASE}`)
