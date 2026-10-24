@@ -24,7 +24,8 @@ const dayLabel = (d: Date, now: Date) => {
   if (k(d) === k(new Date(now.getTime() - 86_400_000))) return "Yesterday";
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(d);
 };
-const time = (d: Date) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(d);
+// Tunde works on West Africa Time, like the greeting on the home page.
+const time = (d: Date) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos" }).format(d);
 const tone = (type: string) => (type.endsWith("PAYMENT.FAILED") ? "bg-brand" : type === "PAYMENT.SALE.COMPLETED" ? "bg-recovered" : "bg-ink-muted");
 
 async function Activity() {
