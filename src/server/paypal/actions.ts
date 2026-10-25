@@ -5,6 +5,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import type { PaypalClient, Subscription } from "paypal";
 import { db, schema as s } from "@/db";
+import { money } from "@/lib/format";
 import { cents } from "@/lib/paypal-events";
 import { FIXES, type FixId } from "@/lib/fixes";
 import { sendNote } from "../mail";
@@ -228,6 +229,23 @@ export async function resumeGift(input: { orgId: string; failureId: string; appr
   const subscriptionId = failure.donor.paypalSubscriptionId;
   if (!subscriptionId) return { ok: false, status: 409, message: "This donor has no PayPal subscription yet." };
   const first = failure.donor.name.split(" ")[0];
+  // PayPal won't reactivate a subscription it suspended for failed payments while money is owed ("Subscription cannot
+  // be activated after payment failure threshold has reached", sandbox, 25 Oct 2026): collect it first with Retry.
+  // PayPal is asked, not Lifeline's copy; a read that fails is not a write in doubt.
+  if (failure.status !== "paused") {
+    let owedCents: number;
+    try {
+      const sub = await client.subscriptions.getSubscription({ id: subscriptionId });
+      owedCents = cents(sub.billingInfo?.outstandingBalance) ?? 0;
+    } catch (e) {
+      const o = outcomeOf(e);
+      return o.kind === "refused" ? failed(o) : { ok: false, status: 502, message: "Couldn't reach PayPal to check what's owed." };
+    }
+    if (owedCents > 0) {
+      await db.update(s.donors).set({ outstandingCents: owedCents }).where(eq(s.donors.id, failure.donorId));
+      return { ok: false, status: 409, message: `PayPal resumes this gift only once the ${money(owedCents)} owed is collected. Retry the charge first.` };
+    }
+  }
 
   const c = await claimAction({ claimKey: `resume:${failure.id}`, orgId: input.orgId, failureId: failure.id, kind: "resume" });
   if (!c.claimed) {

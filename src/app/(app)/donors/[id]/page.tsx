@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { day, money } from "@/lib/format";
 import { FIXES, type FixId } from "@/lib/fixes";
 import { causeLabel } from "@/lib/labels";
-import { currentOrg, getDonor } from "@/server/queries";
+import { currentOrg, getDonor, owedNow } from "@/server/queries";
 
 export const metadata = { title: "Donor" };
 
@@ -40,6 +40,7 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
   const open = d.failures.find((f) => OPEN.includes(f.status));
   // Paused by Tunde, or suspended by PayPal after failed payments: resumed through the latest rescue.
   const paused = d.status === "SUSPENDED" ? (d.failures.find((f) => f.status === "paused") ?? d.failures[0]) : undefined;
+  const owed = paused && paused.status !== "paused" ? ((await owedNow(d.paypalSubscriptionId)) ?? d.outstandingCents) : 0;
   const given = d.gifts.reduce((t, g) => t + g.amountCents, 0);
   const memos = await db.select({ id: schema.memos.id, text: schema.memos.text }).from(schema.memos).where(eq(schema.memos.donorId, d.id)).orderBy(desc(schema.memos.createdAt));
 
@@ -66,8 +67,8 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
             </div>
             {paused ? (
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <p className="text-sm text-muted-foreground">{paused.status === "paused" ? `You paused ${first}'s gift ${day(paused.resolvedAt ?? paused.failedAt)}.` : `PayPal suspended ${first}'s gift after failed payments.`}</p>
-                <ResumeGift failureId={paused.id} first={first} />
+                <p className="text-sm text-muted-foreground">{paused.status === "paused" ? `You paused ${first}'s gift ${day(paused.resolvedAt ?? paused.failedAt)}.` : `PayPal suspended ${first}'s gift after failed payments.${owed > 0 ? ` It can be resumed once the ${money(owed)} owed is collected.` : ""}`}</p>
+                {paused.status === "paused" || owed === 0 ? <ResumeGift failureId={paused.id} first={first} /> : null}
               </div>
             ) : null}
             <DonorHistory gifts={d.gifts.map((g) => ({ at: g.chargedAt.toISOString(), cents: g.amountCents, recovered: !!g.recoveredFailureId }))} failedAt={open?.failedAt.toISOString()} open={!!open} />

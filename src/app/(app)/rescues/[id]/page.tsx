@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { day, money } from "@/lib/format";
 import { causeLabel, plainWords } from "@/lib/labels";
 import { FIXES, type FixId } from "@/lib/fixes";
-import { currentOrg, getRescue, resumedAt } from "@/server/queries";
+import { currentOrg, getRescue, owedNow, resumedAt } from "@/server/queries";
 
 export const metadata = { title: "Rescue" };
 
@@ -34,6 +34,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
   const r = await getRescue(org.id, id);
   if (!r) notFound();
   const first = r.donor.name.split(" ")[0];
+  const owed = r.donor.status === "SUSPENDED" ? ((await owedNow(r.donor.paypalSubscriptionId)) ?? r.donor.outstandingCents) : 0;
   const working = r.status === "new" || r.status === "diagnosing";
   const note = r.notes[0] ?? null;
   const steps = r.trace ?? [];
@@ -81,8 +82,11 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
               {r.error ? <LookAgain failureId={r.id} /> : null}
               {r.donor.status === "SUSPENDED" ? (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-5 py-3 shadow-soft">
-                  <p className="text-sm text-muted-foreground">PayPal suspended {first}&apos;s gift after {r.donor.failedPaymentsCount || "several"} failed payments. Nothing is charged until it&apos;s resumed.</p>
-                  <ResumeGift failureId={r.id} first={first} />
+                  <p className="text-sm text-muted-foreground">
+                    PayPal suspended {first}&apos;s gift after {r.donor.failedPaymentsCount || "several"} failed payments.{" "}
+                    {owed > 0 ? `It can be resumed once the ${money(owed)} owed is collected: retry the charge after ${first} updates the card.` : "Nothing is charged until it's resumed."}
+                  </p>
+                  {owed > 0 ? null : <ResumeGift failureId={r.id} first={first} />}
                 </div>
               ) : null}
               <RescueActions

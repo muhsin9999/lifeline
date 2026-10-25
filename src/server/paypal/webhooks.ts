@@ -112,7 +112,7 @@ export async function ingest(event: WebhookEvent, opts: { simulated?: boolean } 
         .onConflictDoNothing({ target: s.failures.paypalEventId })
         .returning({ id: s.failures.id });
       failureId = row?.id;
-      await db.update(s.donors).set({ failedPaymentsCount: donor.failedPaymentsCount + 1 }).where(eq(s.donors.id, donor.id));
+      if (row) await db.update(s.donors).set({ failedPaymentsCount: donor.failedPaymentsCount + 1, outstandingCents: donor.outstandingCents + (f?.amountCents ?? donor.amountCents) }).where(eq(s.donors.id, donor.id));
     }
   }
 

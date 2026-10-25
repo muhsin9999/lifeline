@@ -2,6 +2,8 @@
 import "server-only";
 import { and, asc, desc, eq, gte, inArray, lt, notInArray, sql } from "drizzle-orm";
 import { db, schema as s } from "@/db";
+import { cents } from "@/lib/paypal-events";
+import { paypalSdk } from "./paypal/sdk";
 
 /** Waiting on the agent or the officer. */
 const NEEDS = ["new", "diagnosing", "awaiting_approval"] as const;
@@ -166,4 +168,15 @@ export async function getWebhookHealth(now: Date) {
 export async function resumedAt(failureId: string) {
   const row = await db.query.paypalActions.findFirst({ where: and(eq(s.paypalActions.claimKey, `resume:${failureId}`), eq(s.paypalActions.status, "done")) });
   return row?.settledAt ?? null;
+}
+
+/** What PayPal says a suspended donor owes right now; null if PayPal can't be reached (the page falls back). */
+export async function owedNow(subscriptionId: string | null) {
+  if (!subscriptionId) return null;
+  try {
+    const sub = await paypalSdk().subscriptions.getSubscription({ id: subscriptionId });
+    return cents(sub.billingInfo?.outstandingBalance) ?? 0;
+  } catch {
+    return null;
+  }
 }

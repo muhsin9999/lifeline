@@ -188,9 +188,15 @@ describe.skipIf(live)("approved fixes against a fake PayPal (dev database)", () 
     expect(pp.writes()).toHaveLength(2);
   }, 60_000);
 
-  it("resume: a gift PayPal suspended after failed payments can be resumed from its open rescue, which stays open", async () => {
+  it("resume: a gift PayPal suspended can be resumed once nothing is owed; its open rescue stays open", async () => {
     await db.update(s.donors).set({ status: "SUSPENDED" }).where(eq(s.donors.paypalSubscriptionId, SUB));
-    const pp = fakePayPal({ [`POST /v1/billing/subscriptions/${SUB}/activate`]: { status: 204 } });
+    const pp = fakePayPal({
+      [`GET /v1/billing/subscriptions/${SUB}`]: [{ status: 200, body: subscription({ status: "SUSPENDED", owed: "25.00" }) }, { status: 200, body: subscription({ status: "SUSPENDED", owed: "0.00" }) }],
+      [`POST /v1/billing/subscriptions/${SUB}/activate`]: { status: 204 },
+    });
+    // PayPal refuses to reactivate while money is owed, so Lifeline asks PayPal first and asks for Retry, writing nothing.
+    expect(await resumeGift({ orgId: ids.orgId, failureId: ids.failureId, approvedBy: "test" }, pp.client)).toMatchObject({ ok: false, status: 409, message: "PayPal resumes this gift only once the $25 owed is collected. Retry the charge first." });
+    expect(pp.writes()).toHaveLength(0);
     expect(await resumeGift({ orgId: ids.orgId, failureId: ids.failureId, approvedBy: "test" }, pp.client)).toMatchObject({ ok: true });
     const f = await db.query.failures.findFirst({ where: eq(s.failures.id, ids.failureId), with: { donor: true } });
     expect(f!.status).toBe("awaiting_approval");
