@@ -88,6 +88,7 @@ Four of the operations in scope return `undefined`: suspend, activate, cancel an
   - `captureType`: required. The enum `CaptureType` has one member, `OutstandingBalance` = `"OUTSTANDING_BALANCE"`.
   - `amount`: required, `Money { currencyCode, value }`.
 - **suspendSubscription**: `id` (path), `body: SuspendSubscription { reason: string }`. `reason` is required.
+- **activateSubscription**: `id` (path), optional `body: ActivateSubscriptionRequest { reason?: string }` (the model says the reason is "required to reactivate", so Lifeline always sends one). `POST /v1/billing/subscriptions/{id}/activate`, returns `undefined`; called with `.asApiResult()`.
 - **activateSubscription**: `id` (path), `body?: ActivateSubscriptionRequest { reason?: string }`.
 - **cancelSubscription**: `id` (path), `body?: CancelSubscriptionRequest { reason: string }`. `reason` is required.
 - **patchSubscription**: `id` (path), `body?: Patch[]`.
@@ -143,6 +144,7 @@ Every arm on the Subscriptions writes carries the same `SubscriptionError` model
 | captureSubscription (retry now) | `paypal_actions`, `claim_key = retry:<failure_id>` | unique index `paypal_actions_claim_key_idx` | `catch` on Postgres code `23505` in `claimAction`, which then returns the winner's row | `src/server/paypal/actions.ts` `claimAction` + `runFix` |
 | suspendSubscription (pause) | `claim_key = pause:<failure_id>` | same index | same | same |
 | cancelSubscription | `claim_key = cancel:<failure_id>` | same index | same | same |
+| activateSubscription (resume a paused gift) | `claim_key = resume:<failure_id>` | same index | same | `resumeGift` in the same file; done only when a re-read shows `status = ACTIVE` |
 | patchSubscription (lower amount) | `claim_key = lower:<failure_id>` | same index | same | same |
 | patchSubscription (forgive) | `claim_key = forgive:<failure_id>` | same index | same | same |
 | createBillingPlan (seed) | `claim_key = plan:<plan_slug>` | same index | same | `scripts/seed.ts` via `claimAction` |

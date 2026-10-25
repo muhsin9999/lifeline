@@ -14,7 +14,7 @@ const live = !process.env.DATABASE_URL || host(process.env.DATABASE_URL) === hos
 process.env.RESEND_API_KEY = "";
 
 const { db, schema: s } = await import("../src/db");
-const { runFix } = await import("../src/server/paypal/actions");
+const { resumeGift, runFix } = await import("../src/server/paypal/actions");
 
 type Reply = { status: number; body?: unknown } | "drop";
 type Call = { method: string; path: string; headers: Headers; body: unknown; claimAtSend?: string | null };
@@ -168,5 +168,45 @@ describe.skipIf(live)("approved fixes against a fake PayPal (dev database)", () 
     expect(await runFix(fix("pause"), pp.client)).toMatchObject({ ok: true });
     expect(await runFix(fix("pause"), pp.client)).toEqual({ ok: true, message: "Already done." });
     expect(pp.writes()).toHaveLength(1);
+  }, 60_000);
+  it("resume: only a paused rescue, claimed before the activate call, with a reason; the rescue goes back to watching", async () => {
+    const pp = fakePayPal({ [`POST /v1/billing/subscriptions/${SUB}/suspend`]: { status: 204 }, [`POST /v1/billing/subscriptions/${SUB}/activate`]: { status: 204 } }, { claimKey: `resume:${ids.failureId}` });
+    const resume = () => resumeGift({ orgId: ids.orgId, failureId: ids.failureId, approvedBy: "test" }, pp.client);
+    expect(await resume()).toMatchObject({ ok: false, status: 409 }); // not paused yet
+    expect(pp.calls).toHaveLength(0);
+    expect(await runFix(fix("pause"), pp.client)).toMatchObject({ ok: true });
+    expect(await resume()).toEqual({ ok: true, message: "Grace's monthly gift is back on." });
+    const w = pp.writes().at(-1)!;
+    expect(w.path).toBe(`/v1/billing/subscriptions/${SUB}/activate`);
+    expect(w.body).toEqual({ reason: "Resumed by the nonprofit" });
+    expect(w.claimAtSend).toBe("claimed");
+    const f = await db.query.failures.findFirst({ where: eq(s.failures.id, ids.failureId), with: { donor: true } });
+    expect(f!.status).toBe("watching");
+    expect(f!.resolvedAt).toBeNull();
+    expect(f!.donor.status).toBe("ACTIVE");
+    expect(await resume()).toMatchObject({ ok: false, status: 409 }); // watching again, nothing to resume
+    expect(pp.writes()).toHaveLength(2);
+  }, 60_000);
+
+  it("resume: a gift PayPal suspended after failed payments can be resumed from its open rescue, which stays open", async () => {
+    await db.update(s.donors).set({ status: "SUSPENDED" }).where(eq(s.donors.paypalSubscriptionId, SUB));
+    const pp = fakePayPal({ [`POST /v1/billing/subscriptions/${SUB}/activate`]: { status: 204 } });
+    expect(await resumeGift({ orgId: ids.orgId, failureId: ids.failureId, approvedBy: "test" }, pp.client)).toMatchObject({ ok: true });
+    const f = await db.query.failures.findFirst({ where: eq(s.failures.id, ids.failureId), with: { donor: true } });
+    expect(f!.status).toBe("awaiting_approval");
+    expect(f!.donor.status).toBe("ACTIVE");
+  }, 60_000);
+
+  it("resume: a dropped activate is settled by re-reading PayPal", async () => {
+    const pp = fakePayPal({ [`POST /v1/billing/subscriptions/${SUB}/suspend`]: { status: 204 }, [`POST /v1/billing/subscriptions/${SUB}/activate`]: "drop", [`GET /v1/billing/subscriptions/${SUB}`]: { status: 200, body: subscription({ status: "ACTIVE" }) } });
+    await runFix(fix("pause"), pp.client);
+    expect(await resumeGift({ orgId: ids.orgId, failureId: ids.failureId, approvedBy: "test" }, pp.client)).toEqual({ ok: true, message: "PayPal confirms this went through." });
+    expect(pp.reads()).toHaveLength(1);
+  }, 60_000);
+
+  it("resume: a rescue from another organisation never reaches PayPal", async () => {
+    const pp = fakePayPal({});
+    expect(await resumeGift({ orgId: ids.orgId, failureId: ids.otherOrgFailureId, approvedBy: "test" }, pp.client)).toMatchObject({ ok: false, status: 404 });
+    expect(pp.calls).toHaveLength(0);
   }, 60_000);
 });

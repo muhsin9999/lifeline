@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { FIXES, type FixId } from "@/lib/fixes";
 import { diagnose } from "@/server/ai/rescue";
-import { runFix, type FixResult } from "@/server/paypal/actions";
+import { resumeGift, runFix, type FixResult } from "@/server/paypal/actions";
 import { currentOrg } from "@/server/queries";
 
 const Approve = z.object({
@@ -24,6 +24,15 @@ export async function approveFix(input: z.input<typeof Approve>): Promise<FixRes
   const org = await currentOrg();
   const result = await runFix({ orgId: org.id, approvedBy: "Tunde (fundraising officer)", ...parsed.data });
   revalidatePath("/rescues", "layout");
+  return result;
+}
+
+/** The officer resumes a gift they paused from this rescue. */
+export async function resumeGiftAction(failureId: string): Promise<FixResult> {
+  if (!z.uuid().safeParse(failureId).success) return { ok: false, status: 400, message: "That request wasn't valid." };
+  const org = await currentOrg();
+  const result = await resumeGift({ orgId: org.id, failureId, approvedBy: "Tunde (fundraising officer)" });
+  revalidatePath("/", "layout");
   return result;
 }
 

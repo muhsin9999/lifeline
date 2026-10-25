@@ -118,7 +118,7 @@ export type Rescue = NonNullable<Awaited<ReturnType<typeof getRescue>>>;
 export async function getDonors(orgId: string) {
   const donors = await db.query.donors.findMany({
     where: eq(s.donors.orgId, orgId),
-    with: { gifts: { orderBy: desc(s.gifts.chargedAt), limit: 12, columns: { chargedAt: true, amountCents: true, recoveredFailureId: true } }, failures: { orderBy: desc(s.failures.failedAt), columns: { id: true, status: true, failedAt: true } } },
+    with: { gifts: { orderBy: desc(s.gifts.chargedAt), limit: 12, columns: { chargedAt: true, amountCents: true, recoveredFailureId: true } }, failures: { orderBy: desc(s.failures.failedAt), columns: { id: true, status: true, failedAt: true, resolvedAt: true } } },
     orderBy: asc(s.donors.name),
   });
   const counts = await db
@@ -160,4 +160,10 @@ export async function getWebhookHealth(now: Date) {
   const verified = rows.find((r) => r.verification === "SUCCESS");
   const total = rows.reduce((t, r) => t + r.n, 0);
   return { total, verified: verified?.n ?? 0, rejected: total - (verified?.n ?? 0), lastVerifiedAt: verified?.last ? new Date(verified.last) : null };
+}
+
+/** When a paused gift was resumed from this rescue, if it was. */
+export async function resumedAt(failureId: string) {
+  const row = await db.query.paypalActions.findFirst({ where: and(eq(s.paypalActions.claimKey, `resume:${failureId}`), eq(s.paypalActions.status, "done")) });
+  return row?.settledAt ?? null;
 }

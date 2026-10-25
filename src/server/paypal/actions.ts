@@ -47,7 +47,7 @@ const statusOf = (sub: Subscription) => {
 const firstCyclePrice = (sub: Subscription) => sub.plan?.billingCycles?.find((c) => c.sequence === 1)?.pricingScheme?.fixedPrice?.value ?? null;
 
 /** What a re-read must show for each write to count as done (paypal-plan.md, UNKNOWN OUTCOMES). */
-function confirmedBy(fix: FixId, sub: Subscription, claim: Claim, newAmountCents?: number) {
+function confirmedBy(fix: FixId | "resume", sub: Subscription, claim: Claim, newAmountCents?: number) {
   const owed = sub.billingInfo?.outstandingBalance?.value;
   switch (fix) {
     case "retry": {
@@ -56,6 +56,8 @@ function confirmedBy(fix: FixId, sub: Subscription, claim: Claim, newAmountCents
     }
     case "pause":
       return statusOf(sub) === "SUSPENDED";
+    case "resume":
+      return statusOf(sub) === "ACTIVE";
     case "cancel":
       return statusOf(sub) === "CANCELLED";
     case "lower":
@@ -68,7 +70,7 @@ function confirmedBy(fix: FixId, sub: Subscription, claim: Claim, newAmountCents
 }
 
 /** Re-reads the subscription after a write whose answer was lost. Found → done; not found or re-read failed → still unknown. */
-async function reread(client: PaypalClient, fix: FixId, subscriptionId: string, claim: Claim, newAmountCents?: number) {
+async function reread(client: PaypalClient, fix: FixId | "resume", subscriptionId: string, claim: Claim, newAmountCents?: number) {
   try {
     const sub = await client.subscriptions.getSubscription({ id: subscriptionId });
     if (confirmedBy(fix, sub, claim, newAmountCents)) {
@@ -211,6 +213,65 @@ export async function runFix(input: { orgId: string; failureId: string; fix: Fix
     await release(claim);
     return failed(o);
   }
+}
+
+/**
+ * Resumes a paused or PayPal-suspended gift (activateSubscription). Same rules as the fixes: the rescue must belong to
+ * the officer's organisation, the claim is committed before the call, and a lost answer is settled by re-reading
+ * PayPal. A rescue the officer paused goes back to watching, so the next gift PayPal reports recovers it.
+ */
+export async function resumeGift(input: { orgId: string; failureId: string; approvedBy: string }, client: PaypalClient = paypalSdk()): Promise<FixResult> {
+  const failure = await db.query.failures.findFirst({ where: and(eq(s.failures.id, input.failureId), eq(s.failures.orgId, input.orgId)), with: { donor: true } });
+  if (!failure) return { ok: false, status: 404, message: "That rescue doesn't exist." };
+  // Paused by the officer from this rescue, or suspended by PayPal itself after too many failed payments.
+  if (failure.status !== "paused" && failure.donor.status !== "SUSPENDED") return { ok: false, status: 409, message: "This gift isn't paused." };
+  const subscriptionId = failure.donor.paypalSubscriptionId;
+  if (!subscriptionId) return { ok: false, status: 409, message: "This donor has no PayPal subscription yet." };
+  const first = failure.donor.name.split(" ")[0];
+
+  const c = await claimAction({ claimKey: `resume:${failure.id}`, orgId: input.orgId, failureId: failure.id, kind: "resume" });
+  if (!c.claimed) {
+    if (c.row.status === "done") return { ok: true, message: "Already done." };
+    if (c.row.status === "unknown" && (await reread(client, "resume", subscriptionId, c.row))) {
+      await afterResume(input, failure, c.row);
+      return { ok: true, message: "PayPal confirms this went through." };
+    }
+    return { ok: false, status: 409, message: "Resuming is already in progress.", pending: true };
+  }
+  const claim = c.row;
+  try {
+    const r = await client.subscriptions.activateSubscription({ id: subscriptionId, body: { reason: "Resumed by the nonprofit" } }).asApiResult();
+    if (!r.ok) {
+      const body = (r.payload as { body?: { message?: string; details?: { issue?: string; description?: string }[] } }).body;
+      await release(claim);
+      if (r.status === 401 || r.status === 403) return { ok: false, status: 502, message: "Lifeline couldn’t sign in to PayPal." };
+      if (r.status === 429) return { ok: false, status: 503, message: "PayPal is busy. Try again in a minute." };
+      if (r.status >= 500) return { ok: false, status: 502, message: "PayPal had a problem. Try again shortly." };
+      const d = body?.details?.[0];
+      return { ok: false, status: r.status, message: d?.description ?? d?.issue ?? body?.message ?? `PayPal refused the request (${r.status}).` };
+    }
+    await settle(claim, "done", { status: r.status });
+    await afterResume(input, failure, claim);
+    return { ok: true, message: `${first}'s monthly gift is back on.` };
+  } catch (e) {
+    const o = outcomeOf(e);
+    if (o.kind === "no_response" || o.kind === "unreadable") {
+      if (await reread(client, "resume", subscriptionId, claim)) {
+        await afterResume(input, failure, claim);
+        return { ok: true, message: "PayPal confirms this went through." };
+      }
+      return failed(o);
+    }
+    await release(claim);
+    return failed(o);
+  }
+}
+
+async function afterResume(input: { orgId: string; approvedBy: string }, failure: FailureWithDonor, claim: Claim) {
+  if (failure.status === "paused") await db.update(s.failures).set({ status: "watching", resolvedAt: null }).where(eq(s.failures.id, failure.id));
+  await db.update(s.donors).set({ status: "ACTIVE" }).where(eq(s.donors.id, failure.donorId));
+  await db.insert(s.events).values({ orgId: input.orgId, donorId: failure.donorId, source: "lifeline", type: "FIX.RESUME", summary: `Resumed the gift: ${failure.donor.name}`, verified: true });
+  await db.insert(s.audit).values({ orgId: input.orgId, kind: "fix.resume", subjectType: "failure", subjectId: failure.id, output: { claim: claim.claimKey }, approvedBy: input.approvedBy });
 }
 
 const DONE: Record<FixId, (first: string) => string> = {

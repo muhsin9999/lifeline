@@ -7,6 +7,7 @@ import { desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ChatRail } from "@/components/app/chat-rail";
 import { CopyButton } from "@/components/app/copy-button";
+import { ResumeGift } from "@/components/app/resume-gift";
 import { DonorHistory } from "@/components/app/donor-history";
 import { Skeleton } from "@/components/ui/skeleton";
 import { day, money } from "@/lib/format";
@@ -37,6 +38,8 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
   if (!d) notFound();
   const first = d.name.split(" ")[0];
   const open = d.failures.find((f) => OPEN.includes(f.status));
+  // Paused by Tunde, or suspended by PayPal after failed payments: resumed through the latest rescue.
+  const paused = d.status === "SUSPENDED" ? (d.failures.find((f) => f.status === "paused") ?? d.failures[0]) : undefined;
   const given = d.gifts.reduce((t, g) => t + g.amountCents, 0);
   const memos = await db.select({ id: schema.memos.id, text: schema.memos.text }).from(schema.memos).where(eq(schema.memos.donorId, d.id)).orderBy(desc(schema.memos.createdAt));
 
@@ -61,6 +64,12 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
                 <p className="text-xs text-muted-foreground">given in {d.gifts.length} {d.gifts.length === 1 ? "gift" : "gifts"}</p>
               </div>
             </div>
+            {paused ? (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <p className="text-sm text-muted-foreground">{paused.status === "paused" ? `You paused ${first}'s gift ${day(paused.resolvedAt ?? paused.failedAt)}.` : `PayPal suspended ${first}'s gift after failed payments.`}</p>
+                <ResumeGift failureId={paused.id} first={first} />
+              </div>
+            ) : null}
             <DonorHistory gifts={d.gifts.map((g) => ({ at: g.chargedAt.toISOString(), cents: g.amountCents, recovered: !!g.recoveredFailureId }))} failedAt={open?.failedAt.toISOString()} open={!!open} />
             {open ? (
               <Link href={`/rescues/${open.id}`} className="mt-1 inline-flex items-center gap-2 text-xs text-brand-strong hover:underline">

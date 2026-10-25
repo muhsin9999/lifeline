@@ -8,11 +8,12 @@ import { ChatRail, type RailMessage } from "@/components/app/chat-rail";
 import { LookAgain } from "@/components/app/look-again";
 import { DonorHistory } from "@/components/app/donor-history";
 import { RescueActions } from "@/components/app/rescue-actions";
+import { ResumeGift } from "@/components/app/resume-gift";
 import { Skeleton } from "@/components/ui/skeleton";
 import { day, money } from "@/lib/format";
 import { causeLabel, plainWords } from "@/lib/labels";
 import { FIXES, type FixId } from "@/lib/fixes";
-import { currentOrg, getRescue } from "@/server/queries";
+import { currentOrg, getRescue, resumedAt } from "@/server/queries";
 
 export const metadata = { title: "Rescue" };
 
@@ -78,6 +79,12 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
             <>
               <p className="px-1 text-[15px] leading-relaxed text-pretty">{plainWords(r.diagnosis.summary)}</p>
               {r.error ? <LookAgain failureId={r.id} /> : null}
+              {r.donor.status === "SUSPENDED" ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-5 py-3 shadow-soft">
+                  <p className="text-sm text-muted-foreground">PayPal suspended {first}&apos;s gift after {r.donor.failedPaymentsCount || "several"} failed payments. Nothing is charged until it&apos;s resumed.</p>
+                  <ResumeGift failureId={r.id} first={first} />
+                </div>
+              ) : null}
               <RescueActions
                 failureId={r.id}
                 first={first}
@@ -90,7 +97,9 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
               />
             </>
           ) : (
-            <Outcome status={r.status} fix={r.chosenFix as FixId | null} first={first} recovered={r.recoveredCents} note={note} />
+            <Outcome status={r.status} fix={r.chosenFix as FixId | null} first={first} recovered={r.recoveredCents} note={note} resumed={await resumedAt(r.id)}>
+              {r.status === "paused" ? <ResumeGift failureId={r.id} first={first} /> : null}
+            </Outcome>
           )}
         </div>
       </main>
@@ -108,7 +117,7 @@ const OUTCOME: Record<string, { tone: "good" | "wait" | "neutral"; title: (first
   lost: { tone: "neutral", title: (f) => `${f} stopped giving` },
 };
 
-function Outcome({ status, fix, first, recovered, note }: { status: string; fix: FixId | null; first: string; recovered: number | null; note: { status: string; sentAt: Date | null } | null }) {
+function Outcome({ status, fix, first, recovered, note, resumed, children }: { status: string; fix: FixId | null; first: string; recovered: number | null; note: { status: string; sentAt: Date | null } | null; resumed: Date | null; children?: React.ReactNode }) {
   const o = OUTCOME[status] ?? { tone: "neutral" as const, title: () => status };
   return (
     <section className={o.tone === "good" ? "rounded-2xl border border-recovered/30 bg-recovered-tint px-5 py-4" : "rounded-2xl border border-line bg-surface px-5 py-4 shadow-soft"}>
@@ -116,8 +125,10 @@ function Outcome({ status, fix, first, recovered, note }: { status: string; fix:
       <p className="mt-1 text-sm text-muted-foreground">
         {fix ? `You approved: ${FIXES[fix].label.toLowerCase()}.` : null}
         {note?.status === "sent" && note.sentAt ? ` Note sent ${day(note.sentAt)}.` : null}
+        {resumed ? ` Resumed ${day(resumed)}.` : null}
         {status === "watching" ? " Lifeline marks this recovered the moment PayPal reports the gift." : null}
       </p>
+      {children ? <div className="mt-3">{children}</div> : null}
     </section>
   );
 }
