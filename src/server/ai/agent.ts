@@ -46,6 +46,8 @@ export async function runAgent<T>(opts: {
   model: string;
   instructions: string;
   input: string;
+  /** Images the model should look at with the first message (base64). */
+  images?: { type: string; data: string }[];
   tools: AgentTool[];
   output: z.ZodType<T>;
   outputName: string;
@@ -58,7 +60,9 @@ export async function runAgent<T>(opts: {
   const used: string[] = [];
   const byName = new Map(opts.tools.map((t) => [t.name, t]));
   const toolSchemas = [PLAN_TOOL, ...opts.tools.map(schemaFor)];
-  let input: OpenAI.Responses.ResponseInput = [{ role: "user", content: opts.input }];
+  let input: OpenAI.Responses.ResponseInput = opts.images?.length
+    ? [{ role: "user", content: [{ type: "input_text", text: opts.input }, ...opts.images.map((im) => ({ type: "input_image" as const, image_url: `data:${im.type};base64,${im.data}`, detail: "auto" as const }))] }]
+    : [{ role: "user", content: opts.input }];
   let previous: string | undefined;
 
   for (let turn = 0; turn < (opts.maxTurns ?? 8); turn++) {

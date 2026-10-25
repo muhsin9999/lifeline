@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { m } from "motion/react";
-import { ArrowUpIcon, CheckIcon, ChevronDownIcon, LoaderIcon } from "lucide-react";
+import { ArrowUpIcon, BrainIcon, CheckIcon, ChevronDownIcon, FileTextIcon, LoaderIcon, PaperclipIcon, XIcon } from "lucide-react";
 import { AgentAvatar, type AgentMood } from "@/components/brand/agent-avatar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { plainWords } from "@/lib/labels";
@@ -14,7 +14,7 @@ type Chip = { label: string; href?: string; ask?: string };
 
 export type RailMessage =
   | { kind: "text"; text: string; chips?: Chip[] }
-  | { kind: "user"; text: string }
+  | { kind: "user"; text: string; file?: string }
   | { kind: "work"; steps: TraceStep[]; running: boolean; about?: "rescue" | "question" };
 
 /**
@@ -22,26 +22,60 @@ export type RailMessage =
  * live tool calls, and anywhere the officer's own questions ("Ask Lifeline"), answered from real data with the
  * steps shown. Main content always comes first, so the rail is fixed-width and quiet.
  */
+const KEPT = "lifeline-ask";
+type Memo = { id: string; text: string; donor: string | null };
+
 export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: { mood?: AgentMood; status?: string; messages: RailMessage[]; suggestions?: string[] }) {
+  // The conversation stays with this browser tab across pages, so "what did we just talk about?" works.
   const [chat, setChat] = useState<RailMessage[]>([]);
+  const restored = useRef(false);
   const [draft, setDraft] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [memos, setMemos] = useState<Memo[]>([]);
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
+    if (!restored.current) return;
+    try {
+      sessionStorage.setItem(KEPT, JSON.stringify(chat.filter((x) => x.kind !== "work").slice(-30)));
+    } catch {}
   }, [chat]);
+  // After mount (never during render, so server and browser agree): bring back this tab's conversation.
+  useEffect(() => {
+    let kept: RailMessage[] = [];
+    try {
+      kept = (JSON.parse(sessionStorage.getItem(KEPT) ?? "[]") as RailMessage[]).filter((x) => x.kind !== "work");
+    } catch {}
+    restored.current = true;
+    if (kept.length) queueMicrotask(() => setChat(kept));
+  }, []);
+  const loadMemos = () =>
+    fetch("/api/memos", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { memos?: Memo[] }) => setMemos(d.memos ?? []))
+      .catch(() => {});
+  useEffect(() => {
+    loadMemos();
+  }, []);
 
   async function askLifeline(question: string) {
-    const q = question.trim();
+    const q = question.trim() || (file ? `I've attached ${file.name}.` : "");
     if (!q || busy) return;
+    const attached = file;
     setBusy(true);
     setDraft("");
+    setFile(null);
     const history = chat.flatMap((x): { role: "user" | "assistant"; text: string }[] => (x.kind === "user" ? [{ role: "user" as const, text: x.text }] : x.kind === "text" ? [{ role: "assistant" as const, text: x.text }] : []));
     const work: Extract<RailMessage, { kind: "work" }> = { kind: "work", steps: [], running: true, about: "question" };
-    setChat((c) => [...c, { kind: "user", text: q }, work]);
+    setChat((c) => [...c, { kind: "user", text: q, file: attached?.name }, work]);
     const update = (fn: (w: typeof work) => typeof work) => setChat((c) => c.map((x) => (x.kind === "work" && x.running ? fn(x as typeof work) : x)));
     try {
-      const res = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: q, history }) });
+      const form = new FormData();
+      form.set("question", q);
+      form.set("history", JSON.stringify(history));
+      if (attached) form.set("file", attached);
+      const res = await fetch("/api/ask", { method: "POST", body: form });
       if (!res.ok || !res.body) {
         const e = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(e.error ?? "Lifeline AI couldn't answer that just now.");
@@ -68,6 +102,7 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
       setChat((c) => [...c, { kind: "text", text: e instanceof Error ? e.message : "Something went wrong." }]);
     } finally {
       setBusy(false);
+      loadMemos();
     }
   }
 
@@ -83,14 +118,21 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
           <p className="truncate text-xs text-muted-foreground">{busy ? "Looking into your question…" : (status ?? "Your giving recovery assistant")}</p>
         </div>
       </header>
+      {memos.length > 0 && <Remembered memos={memos} onForget={(id) => fetch(`/api/memos?id=${id}`, { method: "DELETE" }).then(loadMemos)} />}
       <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
         {all.map((msg, i) =>
           msg.kind === "text" ? (
             <TextMessage key={i} {...msg} onAsk={askLifeline} />
           ) : msg.kind === "user" ? (
-            <m.p key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="ml-8 rounded-2xl rounded-tr-md bg-ink px-4 py-2.5 text-sm text-white">
-              {msg.text}
-            </m.p>
+            <m.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="ml-8 flex flex-col items-end gap-1.5">
+              <p className="rounded-2xl rounded-tr-md bg-ink px-4 py-2.5 text-sm text-white">{msg.text}</p>
+              {msg.file && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs">
+                  <FileTextIcon className="size-3.5 text-muted-foreground" />
+                  {msg.file}
+                </span>
+              )}
+            </m.div>
           ) : (
             <WorkMessage key={i} steps={msg.steps} running={msg.running} about={msg.about ?? "rescue"} />
           ),
@@ -112,10 +154,23 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
           askLifeline(draft);
         }}
       >
+        {file && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs">
+            <FileTextIcon className="size-3.5 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{file.name}</span>
+            <button type="button" onClick={() => setFile(null)} aria-label="Remove the file" className="text-muted-foreground hover:text-ink">
+              <XIcon className="size-3.5" />
+            </button>
+          </div>
+        )}
         <label className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 shadow-soft focus-within:border-input">
           <span className="sr-only">Ask Lifeline</span>
+          <span className="relative grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-muted" aria-label="Attach a file">
+            <PaperclipIcon className="size-4" />
+            <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp,text/csv,text/plain" disabled={busy} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Attach a file" />
+          </span>
           <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={400} disabled={busy} placeholder="Ask Lifeline…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60" />
-          <button disabled={busy || !draft.trim()} className="grid size-7 place-items-center rounded-lg bg-ink text-white disabled:opacity-30" aria-label="Send">
+          <button disabled={busy || (!draft.trim() && !file)} className="grid size-7 place-items-center rounded-lg bg-ink text-white disabled:opacity-30" aria-label="Send">
             <ArrowUpIcon className="size-4" />
           </button>
         </label>
@@ -210,6 +265,34 @@ function WorkMessage({ steps, running, about }: { steps: TraceStep[]; running: b
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function Remembered({ memos, onForget }: { memos: Memo[]; onForget: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-y border-line px-5 py-2">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-xs text-muted-foreground hover:text-ink">
+        <BrainIcon className="size-3.5" />
+        What Lifeline remembers ({memos.length})
+        <ChevronDownIcon className={cn("ml-auto size-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+          {memos.map((n) => (
+            <li key={n.id} className="flex items-start gap-2 rounded-lg bg-surface px-3 py-1.5 text-xs">
+              <span className="min-w-0 flex-1">
+                {n.text}
+                <span className="block text-muted-foreground">about {n.donor ?? "the food bank"}</span>
+              </span>
+              <button type="button" onClick={() => onForget(n.id)} aria-label={`Forget: ${n.text}`} className="text-muted-foreground hover:text-brand">
+                <XIcon className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -199,3 +199,17 @@ export const failuresRelations = relations(failures, ({ one, many }) => ({
   notes: many(notes),
 }));
 export const notesRelations = relations(notes, ({ one }) => ({ failure: one(failures, { fields: [notes.failureId], references: [failures.id] }) }));
+
+// What Tunde told Lifeline AI to remember ("Cora lost her job"). The rescue agent reads a donor's memos when it
+// diagnoses their next failed gift; Ask Lifeline reads them all.
+export const memos = pgTable(
+  "memos",
+  {
+    id: id(),
+    orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
+    donorId: uuid("donor_id").references(() => donors.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("memos_org_idx").on(t.orgId, t.createdAt)],
+);

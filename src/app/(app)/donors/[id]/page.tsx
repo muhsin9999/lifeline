@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ArrowLeftIcon, BrainIcon, ChevronRightIcon } from "lucide-react";
+import { desc, eq } from "drizzle-orm";
+import { db, schema } from "@/db";
 import { ChatRail } from "@/components/app/chat-rail";
 import { CopyButton } from "@/components/app/copy-button";
 import { DonorHistory } from "@/components/app/donor-history";
@@ -36,6 +38,7 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
   const first = d.name.split(" ")[0];
   const open = d.failures.find((f) => OPEN.includes(f.status));
   const given = d.gifts.reduce((t, g) => t + g.amountCents, 0);
+  const memos = await db.select({ id: schema.memos.id, text: schema.memos.text }).from(schema.memos).where(eq(schema.memos.donorId, d.id)).orderBy(desc(schema.memos.createdAt));
 
   return (
     <>
@@ -66,6 +69,20 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
               </Link>
             ) : null}
           </header>
+
+          {memos.length ? (
+            <section className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <BrainIcon className="size-4 text-muted-foreground" /> What you told Lifeline about {first}
+              </h2>
+              <ul className="mt-2 space-y-1.5 text-sm">
+                {memos.map((m) => (
+                  <li key={m.id} className="rounded-lg bg-paper px-3 py-2">{m.text}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">Lifeline AI reads this when it looks into {first}&apos;s next failed gift.</p>
+            </section>
+          ) : null}
 
           {d.failures.length ? (
             <section className="rounded-2xl border border-line bg-surface shadow-soft">
