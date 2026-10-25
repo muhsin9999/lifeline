@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowRight, CalendarX, Pause, RotateCw, XCircle } from "lucide-react";
 import { AgentAvatar } from "@/components/brand/agent-avatar";
 import { Logo } from "@/components/brand/logo";
+import { CountUp } from "@/components/landing/count-up";
 import { FlowLine } from "@/components/landing/flow-line";
 import { HeroAgent } from "@/components/landing/hero-agent";
 import { HeroStage } from "@/components/landing/hero-stage";
@@ -74,7 +75,7 @@ export default function Landing() {
         <div className="mt-10 grid gap-10 sm:grid-cols-3">
           {NUMBERS.map((n) => (
             <div key={n.value}>
-              <p className="text-5xl font-bold tracking-[-0.04em] tabular-nums sm:text-6xl">{n.value}</p>
+              <CountUp value={n.value} className="text-5xl font-bold tracking-[-0.04em] tabular-nums sm:text-6xl" />
               <p className="mt-3 max-w-64 text-ink-muted">{n.label}</p>
               <a href={n.href} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-ink-muted underline underline-offset-4 hover:text-ink">
                 Source: {n.source}

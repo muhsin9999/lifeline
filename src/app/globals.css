@@ -187,3 +187,8 @@
   from { background-position: 100% 0; }
   to { background-position: -150% 0; }
 }
+
+/* Reports on a phone: while Lifeline AI is open it takes the whole width, so the report canvas steps aside. */
+[data-asking] .ag-studio-root-canvas {
+  display: none;
+}

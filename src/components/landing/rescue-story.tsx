@@ -19,6 +19,19 @@ function Segment({ tone, delay, on }: { tone: "fail" | "plan" | "ok"; delay: num
   );
 }
 
+// From md up the three frames sit in a row and play in turn; stacked on a phone, each plays as it reaches the screen.
+function useWide() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const q = window.matchMedia("(min-width: 768px)");
+    const set = () => setWide(q.matches);
+    set();
+    q.addEventListener("change", set);
+    return () => q.removeEventListener("change", set);
+  }, []);
+  return wide;
+}
+
 function Frame({ on, delay, children, className }: { on: boolean; delay: number; children: React.ReactNode; className?: string }) {
   return (
     <m.div initial={{ opacity: 0, y: 14 }} animate={on ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.45, delay }} className={cn("w-full rounded-2xl border border-line bg-surface p-5 shadow-soft md:flex md:min-h-28 md:flex-col md:justify-center", className)}>
@@ -48,13 +61,23 @@ export function RescueStory() {
 
 function Strip() {
   const ref = useRef<HTMLDivElement>(null);
-  const on = useInView(ref, { once: true, margin: "-120px" });
+  const wide = useWide();
+  const strip = useInView(ref, { once: true, margin: "-120px" });
+  const r0 = useRef<HTMLDivElement>(null);
+  const r1 = useRef<HTMLDivElement>(null);
+  const r2 = useRef<HTMLDivElement>(null);
+  const own = [useInView(r0, { once: true, amount: 0.6 }), useInView(r1, { once: true, amount: 0.6 }), useInView(r2, { once: true, amount: 0.6 })];
+  const rowRefs = [r0, r1, r2];
+  // Row: one trigger, staggered. Stacked: each card on its own, with a short lead-in.
+  const onAt = (i: number) => (wide ? strip : own[i]);
+  const delayAt = (i: number) => (wide ? 0.5 + i : 0.35);
+  const on = onAt(1);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     if (!on) return;
-    const t = setTimeout(() => setSaved(true), 2300);
+    const t = setTimeout(() => setSaved(true), wide ? 2300 : 1300);
     return () => clearTimeout(t);
-  }, [on]);
+  }, [on, wide]);
 
   const steps = [
     ["Spot", "PayPal tells Lifeline the moment a monthly gift fails. Every message is signature-checked."],
@@ -62,14 +85,14 @@ function Strip() {
     ["Recover", "Lifeline makes the change in PayPal and watches until the gift comes back."],
   ];
   const cards = [
-    <Frame key="fail" on={on} delay={0.5}>
+    <Frame key="fail" on={onAt(0)} delay={delayAt(0)}>
       <div className="flex items-center gap-2">
         <span className="size-2.5 rounded-full bg-brand" />
         <span className="font-semibold text-ink">Gift failed</span>
       </div>
       <p className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-ink-muted">Monthly gift · PayPal</p>
     </Frame>,
-    <Frame key="plan" on={on} delay={1.5}>
+    <Frame key="plan" on={onAt(1)} delay={delayAt(1)}>
       <div className="flex items-center gap-3">
         <AgentAvatar glossy mood={saved ? "happy" : on ? "thinking" : "idle"} milestone="saved" className="size-12 shrink-0" label="" />
         <div className="min-w-0">
@@ -80,7 +103,7 @@ function Strip() {
         </div>
       </div>
     </Frame>,
-    <Frame key="ok" on={on} delay={2.5}>
+    <Frame key="ok" on={onAt(2)} delay={delayAt(2)}>
       <div className="flex items-center gap-2">
         <span className="size-2.5 rounded-full bg-recovered" />
         <span className="font-semibold text-ink">Gift recovered</span>
@@ -95,9 +118,12 @@ function Strip() {
       {cards.map((card, i) => (
         <div key={i} className="contents">
           <div className="hidden flex-1 pt-6 md:block">
-            <Segment tone={tones[i]} delay={i} on={on} />
+            <Segment tone={tones[i]} delay={i} on={strip} />
           </div>
-          <div className="flex w-full max-w-72 flex-col items-center md:w-64 md:shrink-0">
+          <div ref={rowRefs[i]} className="flex w-full max-w-72 flex-col items-center md:w-64 md:shrink-0">
+            <div className="-mt-4 mb-2 w-40 md:hidden">
+              <Segment tone={tones[i]} delay={0} on={own[i]} />
+            </div>
             {card}
             <p className="mt-6 font-semibold text-ink">
               <span className="text-ink-muted tabular-nums">{i + 1}.</span> {steps[i][0]}
@@ -107,7 +133,7 @@ function Strip() {
         </div>
       ))}
       <div className="hidden flex-1 pt-6 md:block">
-        <Segment tone="ok" delay={3} on={on} />
+        <Segment tone="ok" delay={3} on={strip} />
       </div>
     </div>
   );

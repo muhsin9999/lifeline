@@ -168,6 +168,24 @@ const initialState: AgReportState<Registry> = {
   panels: { ai: { collapsed: false }, filters: { collapsed: true }, edit: { collapsed: true }, data: { collapsed: true } },
 };
 
+// On a phone every chart gets the full width and the four totals sit two by two, so nothing scrolls sideways.
+const PHONE_LAYOUT = {
+  given: { xTrack: 0, yTrack: 0, xSpan: 12, ySpan: 6 },
+  failed: { xTrack: 12, yTrack: 0, xSpan: 12, ySpan: 6 },
+  recovered: { xTrack: 0, yTrack: 6, xSpan: 12, ySpan: 6 },
+  donors: { xTrack: 12, yTrack: 6, xSpan: 12, ySpan: 6 },
+  pulse: { xTrack: 0, yTrack: 12, xSpan: 24, ySpan: 10 },
+  trend: { xTrack: 0, yTrack: 22, xSpan: 24, ySpan: 14 },
+  causes: { xTrack: 0, yTrack: 36, xSpan: 24, ySpan: 14 },
+  rescues: { xTrack: 0, yTrack: 50, xSpan: 24, ySpan: 18 },
+};
+
+const phoneState: AgReportState<Registry> = {
+  ...initialState,
+  pages: initialState.pages.map((pg) => ({ ...pg, widgetLayout: PHONE_LAYOUT })),
+  panels: { ...initialState.panels, ai: { collapsed: false } },
+};
+
 const widgets = (defaults: AgWidgetsConfig<AgDefaultRegistry>) =>
   createWidgets<Registry>({
   additionalTypes: [
@@ -217,9 +235,14 @@ const ai: AgAiHarnessSetup = ({ api }) =>
 // appear when the officer asks to customize. AG Studio's chat lives in edit mode, so the report stays in it.
 export default function Studio({ data }: { data: StudioData }) {
   const [customize, setCustomize] = useState(false);
-  // On a phone the AI panel would cover the whole report, so it starts folded there (Studio renders only in the
-  // browser, so the width is known).
-  const [startState] = useState(() => (window.innerWidth < 768 ? { ...initialState, panels: { ...initialState.panels, ai: { collapsed: true } } } : initialState));
+  // A phone has no room for a side panel: the report fills the screen, and Lifeline AI opens in its place from the
+  // header (Studio renders only in the browser, so the width is known).
+  const [phone] = useState(() => window.innerWidth < 768);
+  const [asking, setAsking] = useState(false);
+  const startState = phone ? phoneState : initialState;
+  // AG Studio's theme defaults to a 600px Studio and a 720px canvas; a phone gets its own width, and Lifeline AI
+  // takes the whole width while it's open.
+  const [look] = useState(() => (phone ? theme.withParams({ studioMinWidth: 0, studioMinHeight: 0, studioCanvasMinWidth: 0, studioAiPanelWidth: window.innerWidth - 10, studioPanelMaxWidth: window.innerWidth }) : theme));
   const def = useMemo(() => definition(data), [data]);
   const modules = useMemo(() => [AgStudioAiModule], []);
   const aiSetup = useMemo(() => ai, []);
@@ -230,21 +253,27 @@ export default function Studio({ data }: { data: StudioData }) {
           <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">Ask Lifeline AI for any chart in plain words, and it builds it here.</p>
         </div>
-        <button type="button" aria-pressed={customize} onClick={() => setCustomize((c) => !c)} className="h-8 rounded-lg border border-line bg-surface px-3 text-sm text-ink-muted shadow-soft hover:text-ink aria-pressed:bg-ink aria-pressed:text-paper">
-          {customize ? "Done customizing" : "Customize"}
-        </button>
+        {phone ? (
+          <button type="button" aria-pressed={asking} onClick={() => setAsking((a) => !a)} className="h-8 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink shadow-soft aria-pressed:bg-ink aria-pressed:text-paper">
+            {asking ? "Back to the report" : "Ask Lifeline AI"}
+          </button>
+        ) : (
+          <button type="button" aria-pressed={customize} onClick={() => setCustomize((c) => !c)} className="h-8 rounded-lg border border-line bg-surface px-3 text-sm text-ink-muted shadow-soft hover:text-ink aria-pressed:bg-ink aria-pressed:text-paper">
+            {customize ? "Done customizing" : "Customize"}
+          </button>
+        )}
       </header>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1" data-asking={phone && asking ? "" : undefined}>
         <AgStudioProvider modules={modules} licenseKey={process.env.NEXT_PUBLIC_AG_STUDIO_LICENSE}>
           <AgStudio<Registry>
             data={def}
             mode="edit"
-            theme={theme}
+            theme={look}
             initialState={startState}
             widgets={widgets}
             ai={aiSetup}
-            panels={{ edit: { left: customize ? ["filters", "edit", "data"] : [], right: ["ai"] } }}
-            layout={{ minWidth: 560 }}
+            panels={{ edit: { left: customize ? ["filters", "edit", "data"] : [], right: phone && !asking ? [] : ["ai"] } }}
+            layout={{ minWidth: phone ? 300 : 560 }}
             localeText={{ panelTitleAi: "Lifeline AI", aiMessageInputPlaceholder: "Ask about your giving…" }}
             style={{ height: "100%", width: "100%" }}
           />
