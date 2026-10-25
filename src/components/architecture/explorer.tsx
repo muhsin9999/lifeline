@@ -3,7 +3,7 @@
 import { ReactFlowProvider, useReactFlow } from "@xyflow/react";
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightIcon,
   BanIcon,
@@ -64,6 +64,15 @@ function Explorer() {
   const [tab, setTab] = useState<Tab>("map");
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
+  // Hover intent: leaving a card waits a moment before clearing, so moving across the gap to the next card
+  // hands the highlight straight over instead of flashing the whole map back to normal and dim again.
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const onHover = useCallback((id: string | null) => {
+    clearTimeout(leaveTimer.current);
+    if (id) setHovered(id);
+    else leaveTimer.current = setTimeout(() => setHovered(null), 160);
+  }, []);
+  useEffect(() => () => clearTimeout(leaveTimer.current), []);
   const [query, setQuery] = useState("");
   const [journeyId, setJourneyId] = useState(JOURNEYS[0].id);
   const [step, setStep] = useState(0);
@@ -177,7 +186,7 @@ function Explorer() {
         <div className="flex min-h-0 flex-1">
           {tab === "journeys" ? <JourneyList journeyId={journeyId} step={step} onJourney={chooseJourney} onStep={(i) => { setStep(i); setPlaying(false); }} /> : null}
           <div className="relative min-w-0 flex-1">
-            <ArchCanvas state={state} layout={`${tab}:${!!selected || tab === "trust"}`} onSelect={setSelected} onHover={setHovered} />
+            <ArchCanvas state={state} layout={`${tab}:${!!selected || tab === "trust"}`} onSelect={setSelected} onHover={onHover} />
             <Key tab={tab} />
             <ZoomButtons />
             {tab === "journeys" ? <Playback steps={journey.steps.length} step={step} title={journey.steps[step].title} sub={journey.steps[step].sub} playing={running} onPlay={() => { if (step >= last) { setStep(0); setPlaying(true); } else setPlaying(!running); }} onStep={(i) => { setStep(i); setPlaying(false); }} done={step === last} /> : null}
