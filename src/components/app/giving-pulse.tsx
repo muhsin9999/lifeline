@@ -12,6 +12,7 @@ const H = 168;
 const BASE = 92;
 const UP = 70;
 const DOWN = 56;
+const PAD = 10; // keeps the first and last beats, and their dates, inside the card
 
 type Day = { key: string; date: Date; given: number; recovered: number; failed: number; open: number; entries: { donor: string; cents: number; kind: "given" | "recovered" | "failed" }[] };
 
@@ -59,21 +60,24 @@ export function GivingPulse({ pulse }: { pulse: Pulse }) {
   useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setWidth(Math.max(320, e.contentRect.width)));
+    const ro = new ResizeObserver(([e]) => setWidth(Math.max(200, e.contentRect.width)));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   const days = useMemo(() => bucket(pulse, range), [pulse, range]);
   const max = Math.max(1, ...days.map((d) => Math.max(d.given, d.recovered, d.failed)));
-  const step = width / days.length;
+  const step = (width - PAD * 2) / days.length;
   const w = Math.min(22, Math.max(6, step * 0.9));
   const scale = (cents: number, room: number) => (cents ? 10 + Math.sqrt(cents / max) * (room - 10) : 0);
-  const xOf = (i: number) => step * i + step / 2;
+  const xOf = (i: number) => PAD + step * i + step / 2;
 
   const line = `M0,${BASE} ` + days.map((d, i) => (d.given ? beatUp(xOf(i), w, scale(d.given, UP)).replace(/^M/, "L") : "")).join(" ") + ` L${width},${BASE}`;
   const totals = days.reduce((t, d) => ({ given: t.given + d.given, recovered: t.recovered + d.recovered, failed: t.failed + (d.failed ? d.entries.filter((e) => e.kind === "failed").length : 0) }), { given: 0, recovered: 0, failed: 0 });
-  const ticks = days.map((d, i) => ({ d, i })).filter(({ i }) => i % Math.ceil(days.length / 6) === 0 || i === days.length - 1);
+  // Fewer dates on a narrow card, and none crowding the last one.
+  const every = Math.ceil(days.length / (width < 480 ? 4 : 6));
+  const last = days.length - 1;
+  const ticks = days.map((d, i) => ({ d, i })).filter(({ i }) => i === last || (i % every === 0 && (last - i) * step > 56));
   const active = hover !== null ? days[hover] : null;
 
   return (
@@ -97,8 +101,8 @@ export function GivingPulse({ pulse }: { pulse: Pulse }) {
         </div>
       </div>
 
-      <div ref={wrap} className="relative mt-4" onMouseLeave={() => setHover(null)}>
-        <svg width={width} height={H + 22} className="block overflow-visible" role="img" aria-label={`Giving pulse, last ${range} days`}>
+      <div ref={wrap} className="relative mt-4" onPointerLeave={() => setHover(null)}>
+        <svg width={width} height={H + 22} className="block" role="img" aria-label={`Giving pulse, last ${range} days`}>
           <line x1={0} x2={width} y1={BASE} y2={BASE} stroke="var(--line)" />
           {active ? <line x1={xOf(hover!)} x2={xOf(hover!)} y1={8} y2={H} stroke="var(--line)" /> : null}
           <m.path key={`line-${range}`} d={line} fill="none" stroke="var(--ink-muted)" strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.4, ease: "easeInOut" }} />
@@ -119,12 +123,12 @@ export function GivingPulse({ pulse }: { pulse: Pulse }) {
             ) : null,
           )}
           {ticks.map(({ d, i }) => (
-            <text key={d.key} x={xOf(i)} y={H + 16} textAnchor="middle" className="fill-muted-foreground text-[11px] tabular-nums">
+            <text key={d.key} x={i === 0 ? 0 : i === days.length - 1 ? width : xOf(i)} y={H + 16} textAnchor={i === 0 ? "start" : i === days.length - 1 ? "end" : "middle"} className="fill-muted-foreground text-[11px] tabular-nums">
               {fmtDay(d.date)}
             </text>
           ))}
           {days.map((d, i) => (
-            <rect key={`hit-${d.key}`} x={step * i} y={0} width={step} height={H} fill="transparent" onMouseEnter={() => setHover(i)} />
+            <rect key={`hit-${d.key}`} x={PAD + step * i} y={0} width={step} height={H} fill="transparent" onPointerEnter={() => setHover(i)} onPointerDown={() => setHover(i)} />
           ))}
         </svg>
         {active ? <Tip day={active} x={xOf(hover!)} width={width} /> : null}
@@ -147,9 +151,9 @@ const KIND = { given: "gave", recovered: "recovered", failed: "failed" } as cons
 const DOT = { given: "bg-ink-muted", recovered: "bg-recovered", failed: "bg-brand" } as const;
 
 function Tip({ day, x, width }: { day: Day; x: number; width: number }) {
-  const left = Math.min(Math.max(x - 110, 0), width - 220);
+  const left = Math.max(Math.min(x - 110, width - 220), 0);
   return (
-    <div className="pointer-events-none absolute top-0 z-10 w-[220px] rounded-xl border border-line bg-surface p-3 text-xs shadow-soft" style={{ left }}>
+    <div className="pointer-events-none absolute top-0 z-10 w-[220px] max-w-full rounded-xl border border-line bg-surface p-3 text-xs shadow-soft" style={{ left }}>
       <p className="font-medium">{fmtDay(day.date)}</p>
       {day.entries.length ? (
         <ul className="mt-1.5 space-y-1">
