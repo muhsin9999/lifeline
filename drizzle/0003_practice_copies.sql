@@ -9,6 +9,6 @@ ALTER TABLE "orgs" ADD CONSTRAINT "orgs_copy_of_orgs_id_fk" FOREIGN KEY ("copy_o
 CREATE UNIQUE INDEX "donors_org_key_idx" ON "donors" USING btree ("org_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "donors_org_subscription_idx" ON "donors" USING btree ("org_id","paypal_subscription_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "gifts_org_transaction_idx" ON "gifts" USING btree ("org_id","paypal_transaction_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "events_paypal_event_idx" ON "events" USING btree ("org_id","paypal_event_id") NULLS NOT DISTINCT;--> statement-breakpoint
+CREATE UNIQUE INDEX "events_paypal_event_idx" ON "events" USING btree ("org_id","paypal_event_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "failures_paypal_event_idx" ON "failures" USING btree ("org_id","paypal_event_id");--> statement-breakpoint
 ALTER TABLE "orgs" ADD CONSTRAINT "orgs_visitor_key_unique" UNIQUE("visitor_key");
