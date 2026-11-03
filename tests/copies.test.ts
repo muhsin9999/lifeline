@@ -126,7 +126,7 @@ describe.skipIf(live)("practice copies (dev database)", () => {
     await db.insert(s.paypalActions).values({ claimKey: `retry:${retried.id}`, orgId: real.id, failureId: retried.id, kind: "retry", status: "unknown" });
     const sale = { id: `WH-SALE-${slug}`, event_type: "PAYMENT.SALE.COMPLETED", create_time: new Date().toISOString(), resource: { id: `SALE-${slug}`, billing_agreement_id: SUB, amount: { total: "3.00", currency: "USD" } } };
     expect((await ingest(sale as never)).outcome).toBe("stored");
-    for (const id of [older.id, retried.id]) expect((await db.query.failures.findFirst({ where: eq(s.failures.id, id) }))!.status).toBe("recovered");
+    for (const id of [older.id, retried.id]) expect(await db.query.failures.findFirst({ where: eq(s.failures.id, id) })).toMatchObject({ status: "recovered", recoveredCents: 100 });
     expect(await db.query.gifts.findFirst({ where: and(eq(s.gifts.orgId, real.id), eq(s.gifts.paypalTransactionId, `SALE-${slug}`)) })).toMatchObject({ recoveredFailureId: retried.id, amountCents: 300 });
     expect(await db.query.paypalActions.findFirst({ where: eq(s.paypalActions.claimKey, `retry:${retried.id}`) })).toMatchObject({ status: "done", result: { via: "webhook", transactionId: `SALE-${slug}` } });
   }, 60_000);
