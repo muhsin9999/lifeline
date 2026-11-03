@@ -7,3 +7,6 @@ test-results/
 .vercel
 scripts/spikes/.failure-test.json
 .env*
+
+# Internal working notes (video script, Devpost draft); kept local, not public
+/notes/
