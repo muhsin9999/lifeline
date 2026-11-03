@@ -10,10 +10,10 @@ import { DonorHistory } from "@/components/app/donor-history";
 import { RescueActions } from "@/components/app/rescue-actions";
 import { ResumeGift } from "@/components/app/resume-gift";
 import { Skeleton } from "@/components/ui/skeleton";
-import { day, money } from "@/lib/format";
+import { day, giftLabel, money } from "@/lib/format";
 import { causeLabel, plainWords } from "@/lib/labels";
 import { FIXES, type FixId } from "@/lib/fixes";
-import { currentOrg, getRescue, owedNow, resumedAt } from "@/server/queries";
+import { currentOrg, dailyDonors, getRescue, owedNow, resumedAt } from "@/server/queries";
 
 export const metadata = { title: "Rescue" };
 
@@ -59,7 +59,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">{r.donor.name}</h1>
                 <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
-                  Monthly gift · {money(r.donor.amountCents)}
+                  {giftLabel((await dailyDonors(org.id)).has(r.donor.id))} · {money(r.donor.amountCents)}
                   {r.donor.startedAt ? ` · since ${since(r.donor.startedAt)}` : ""}
                 </p>
               </div>

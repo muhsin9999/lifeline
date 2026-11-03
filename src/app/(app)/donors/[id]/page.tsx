@@ -10,10 +10,10 @@ import { CopyButton } from "@/components/app/copy-button";
 import { ResumeGift } from "@/components/app/resume-gift";
 import { DonorHistory } from "@/components/app/donor-history";
 import { Skeleton } from "@/components/ui/skeleton";
-import { day, money } from "@/lib/format";
+import { day, giftLabel, money, ORG_TIME_ZONE } from "@/lib/format";
 import { FIXES, type FixId } from "@/lib/fixes";
 import { causeLabel } from "@/lib/labels";
-import { currentOrg, getDonor, owedNow } from "@/server/queries";
+import { currentOrg, dailyDonors, getDonor, owedNow } from "@/server/queries";
 
 export const metadata = { title: "Donor" };
 
@@ -56,7 +56,7 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">{d.name}</h1>
                 <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
-                  Monthly gift · {money(d.amountCents)}
+                  {giftLabel((await dailyDonors(org.id)).has(d.id))} · {money(d.amountCents)}
                   {d.startedAt ? ` · since ${since(d.startedAt)}` : ""} · {SUB[d.status] ?? d.status}
                 </p>
               </div>
@@ -128,7 +128,7 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
                     </summary>
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-paper/50 px-5 py-3 text-xs">
                       <span className="text-muted-foreground">
-                        Charged {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" }).format(g.chargedAt)}
+                        Charged {new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: ORG_TIME_ZONE }).format(g.chargedAt)}
                       </span>
                       <span className="flex items-center gap-2">
                         <span className="text-muted-foreground">PayPal transaction ID</span>

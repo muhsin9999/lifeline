@@ -5,9 +5,9 @@ import { ChevronRightIcon } from "lucide-react";
 import { ChatRail } from "@/components/app/chat-rail";
 import { MiniPulse } from "@/components/app/mini-pulse";
 import { Skeleton } from "@/components/ui/skeleton";
-import { day, money } from "@/lib/format";
+import { day, giftLabel, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { currentOrg, getDonors, type DonorRow } from "@/server/queries";
+import { currentOrg, dailyDonors, getDonors, type DonorRow } from "@/server/queries";
 
 export const metadata = { title: "Donors" };
 
@@ -43,7 +43,7 @@ async function Donors({ searchParams }: { searchParams: Promise<Record<string, s
   const show = ((await searchParams).show as Tab) ?? "all";
   const tab: Tab = TABS.some((t) => t.id === show) ? show : "all";
   const org = await currentOrg();
-  const donors = await getDonors(org.id);
+  const [donors, daily] = await Promise.all([getDonors(org.id), dailyDonors(org.id)]);
   const rows = donors.filter(FILTER[tab]);
   const committed = donors.filter((d) => d.status === "ACTIVE").reduce((t, d) => t + d.amountCents, 0);
   const risky = donors.filter(atRisk);
@@ -88,7 +88,7 @@ async function Donors({ searchParams }: { searchParams: Promise<Record<string, s
                   <Link href={`/donors/${d.id}`} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-5 py-3 hover:bg-paper/60 md:grid-cols-[minmax(0,1.6fr)_6rem_7rem_6rem_6rem_6rem_1rem]">
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{d.name}</span>
-                      <span className="block text-xs text-muted-foreground tabular-nums">Monthly gift · {money(d.amountCents)}</span>
+                      <span className="block text-xs text-muted-foreground tabular-nums">{giftLabel(daily.has(d.id))} · {money(d.amountCents)}</span>
                     </span>
                     <span className="hidden md:block"><MiniPulse beats={d.giftCount} failing={!!d.openRescue} /></span>
                     <span className="hidden md:block"><Status d={d} /></span>

@@ -6,6 +6,7 @@ import { ChatRail } from "@/components/app/chat-rail";
 import { AgentAvatar } from "@/components/brand/agent-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { ORG_TIME_ZONE } from "@/lib/format";
 import { currentOrg, getActivity, getWebhookHealth } from "@/server/queries";
 
 export const metadata = { title: "Activity" };
@@ -24,8 +25,8 @@ const dayLabel = (d: Date, now: Date) => {
   if (k(d) === k(new Date(now.getTime() - 86_400_000))) return "Yesterday";
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(d);
 };
-// Tunde works on West Africa Time, like the greeting on the home page.
-const time = (d: Date) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos" }).format(d);
+// The food bank's own time (US Eastern), like the greeting on the home page.
+const time = (d: Date) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: ORG_TIME_ZONE }).format(d);
 const tone = (type: string) => (type.endsWith("PAYMENT.FAILED") ? "bg-brand" : type === "PAYMENT.SALE.COMPLETED" ? "bg-recovered" : "bg-ink-muted");
 
 async function Activity() {

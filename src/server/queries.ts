@@ -176,3 +176,14 @@ export async function owedNow(subscriptionId: string | null) {
     return null;
   }
 }
+
+/** Donors on a daily plan, told apart by their real PayPal gifts: 4 or more in 14 days can't be a monthly gift. */
+export async function dailyDonors(orgId: string) {
+  const rows = await db
+    .select({ donorId: s.gifts.donorId })
+    .from(s.gifts)
+    .where(and(eq(s.gifts.orgId, orgId), gte(s.gifts.chargedAt, new Date(Date.now() - 14 * 86_400_000))))
+    .groupBy(s.gifts.donorId)
+    .having(sql`count(*) >= 4`);
+  return new Set(rows.map((r) => r.donorId));
+}

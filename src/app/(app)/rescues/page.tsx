@@ -7,10 +7,10 @@ import { GivingPulse } from "@/components/app/giving-pulse";
 import { KpiRow } from "@/components/app/kpis";
 import { AgentAvatar } from "@/components/brand/agent-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { money } from "@/lib/format";
+import { giftLabel, hourInOrg, money, ORG_TIME_ZONE } from "@/lib/format";
 import { causeLabel, timeAgo } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import { currentOrg, getActivity, getKpis, getNeedsYou, getPulse, getRecentlyClosed, getWatching } from "@/server/queries";
+import { currentOrg, dailyDonors, getActivity, getKpis, getNeedsYou, getPulse, getRecentlyClosed, getWatching } from "@/server/queries";
 
 export const metadata = { title: "Rescues" };
 
@@ -26,18 +26,18 @@ async function Rescues() {
   await connection();
   const now = new Date();
   const org = await currentOrg();
-  const [kpis, pulse, needs, watching, closed, latest] = await Promise.all([getKpis(org.id, now), getPulse(org.id, now, 90), getNeedsYou(org.id), getWatching(org.id), getRecentlyClosed(org.id), getActivity(org.id, 5)]);
+  const [kpis, pulse, needs, watching, closed, latest, daily] = await Promise.all([getKpis(org.id, now), getPulse(org.id, now, 90), getNeedsYou(org.id), getWatching(org.id), getRecentlyClosed(org.id), getActivity(org.id, 5), dailyDonors(org.id)]);
   const ready = needs.filter((f) => f.status === "awaiting_approval" && !f.error);
   const fallback = needs.filter((f) => f.status === "awaiting_approval" && f.error);
-  const hour = now.getUTCHours() + 1; // Tunde works on West Africa Time
+  const hour = hourInOrg(now);
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const waitingOn = watching.map((f) => f.donor.name.split(" ")[0]);
   const watchLine = waitingOn.length ? ` I'm watching for ${waitingOn.length === 1 ? `${waitingOn[0]}'s` : `${waitingOn.length} donors'`} next gift after your fix.` : "";
   const brief = needs.length
-    ? `${greeting}, Tunde. ${needs.length} monthly ${needs.length === 1 ? "gift needs" : "gifts need"} you.${ready.length ? ` I've looked into ${ready.length}; ${ready.length === 1 ? "a fix is" : "fixes are"} ready.` : ""}${fallback.length ? ` I couldn't finish ${fallback.length === 1 ? "one" : fallback.length}, so standard fixes are waiting.` : ""}${watchLine}`
+    ? `${greeting}, Tunde. ${needs.length} ${needs.length === 1 ? "gift needs" : "gifts need"} you.${ready.length ? ` I've looked into ${ready.length}; ${ready.length === 1 ? "a fix is" : "fixes are"} ready.` : ""}${fallback.length ? ` I couldn't finish ${fallback.length === 1 ? "one" : fallback.length}, so standard fixes are waiting.` : ""}${watchLine}`
     : watching.length
       ? `${greeting}, Tunde. Nothing needs you right now.${watchLine}`
-      : `${greeting}, Tunde. Every monthly gift went through. I'll tell you the moment one fails.`;
+      : `${greeting}, Tunde. Every gift went through. I'll tell you the moment one fails.`;
 
   return (
     <>
@@ -45,7 +45,7 @@ async function Rescues() {
         <div className="mx-auto max-w-5xl space-y-5">
           <header>
             <h1 className="text-xl font-semibold tracking-tight">Rescues</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Africa/Lagos" }).format(now)} · monthly gifts that failed, and what Lifeline is doing about them</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: ORG_TIME_ZONE }).format(now)} · gifts that failed, and what Lifeline is doing about them</p>
           </header>
           <KpiRow k={kpis} />
           <GivingPulse pulse={pulse} />
@@ -61,7 +61,7 @@ async function Rescues() {
                     <Initials name={f.donor.name} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{f.donor.name}</span>
-                      <span className="block text-xs text-muted-foreground tabular-nums">Monthly gift · {money(f.donor.amountCents)}</span>
+                      <span className="block text-xs text-muted-foreground tabular-nums">{giftLabel(daily.has(f.donor.id))} · {money(f.donor.amountCents)}</span>
                     </span>
                     <span className="hidden sm:block">
                       <span className="rounded-full bg-brand-tint px-2 py-0.5 text-xs text-brand-strong">{causeLabel(f.reasonCode)}</span>
@@ -82,7 +82,7 @@ async function Rescues() {
                     <Initials name={f.donor.name} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{f.donor.name}</span>
-                      <span className="block text-xs text-muted-foreground tabular-nums">Monthly gift · {money(f.donor.amountCents)}</span>
+                      <span className="block text-xs text-muted-foreground tabular-nums">{giftLabel(daily.has(f.donor.id))} · {money(f.donor.amountCents)}</span>
                     </span>
                     <span className="hidden text-xs text-muted-foreground sm:block">{f.chosenFix === "note" ? "Note sent" : "Fix approved"} · waiting for the next gift</span>
                     <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
