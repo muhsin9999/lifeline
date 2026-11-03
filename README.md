@@ -19,7 +19,7 @@ Lifeline watches for them:
 1. Open the live site and click **See it live**. You're Tunde, the fundraising officer at Larkhaven Food Bank.
 2. **Rescues** shows monthly giving, the giving pulse (a beat for each gift, a coral dip for each failure) and anything that **needs you**.
 3. Open a rescue. You'll see what the agent did: its plan, each PayPal read, the diagnosis and the fixes PayPal can carry out right now.
-4. Choose a fix and **Approve**. This makes a real call to the PayPal sandbox, or sends a real email to the test inbox. Afterwards the rescue moves to *Watching*.
+4. Choose a fix and **Approve**. You're in your own **practice copy** of the food bank, so judges never use up each other's rescues. A fix that would change PayPal does the real PayPal reads, then shows the exact Subscriptions API call it would send, without sending it. **Send a note** really emails the test inbox. Afterwards the rescue moves on, in your copy only.
 5. **Ask Lifeline** in the right-hand rail ("How much have we recovered?"). It answers from live data and shows its steps.
 6. **Reports** is an AG Studio report over the same data. Ask its AI for a chart in plain words.
 7. **Activity** lists every PayPal event, each marked as signature-verified.
@@ -34,7 +34,7 @@ The donors are real PayPal sandbox subscriptions, and they fail for real: one do
 | Failed gifts | Real `BILLING.SUBSCRIPTION.PAYMENT.FAILED` events (for example, `PAYER_CANNOT_PAY` on 23 and 24 Oct 2026) |
 | Gifts | Every gift is a PayPal `PAYMENT.SALE.COMPLETED` event, stored once per PayPal transaction id |
 | Webhooks | Every delivery is verified against PayPal's signature before it's stored; a forged one is rejected and logged |
-| Fixes | Real Subscriptions API calls: `captureSubscription`, `suspendSubscription`, `patchSubscription`, `cancelSubscription` |
+| Fixes | Real Subscriptions API calls (`captureSubscription`, `suspendSubscription`, `patchSubscription`, `cancelSubscription`, `activateSubscription`) in the food bank's own workspace, as shown in the video. In a visitor's practice copy they are shown, not sent: every copy holds the same real subscriptions, so one judge's retry would otherwise charge the donor for everyone (`src/server/workspace.ts`) |
 | Notes | Drafted by the AI, edited and approved by a person, sent with Resend to one test inbox |
 | AI | Real model calls, each in the audit log with its model |
 
