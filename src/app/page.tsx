@@ -48,7 +48,7 @@ export default function Landing() {
       <div className="relative">
         <FlowLine from="hero" to="story" />
 
-        <section className="mx-auto max-w-6xl px-4 pt-10 sm:px-8 lg:pt-14">
+        <section className="relative z-10 mx-auto max-w-6xl px-4 pt-10 sm:px-8 lg:pt-14">
           <h1 className="text-[clamp(2.6rem,6.4vw,5.5rem)] leading-[0.98] font-bold tracking-[-0.045em] text-balance">Failed gifts, brought back.</h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-muted sm:text-xl">An AI agent that rescues failed monthly PayPal gifts for a small food bank. You approve every fix.</p>
           <Link href="/rescues" className="mt-8 inline-flex h-12 items-center gap-2 rounded-xl bg-brand px-6 font-semibold text-white shadow-[0_8px_24px_-8px_var(--brand)] transition-colors hover:bg-brand-strong">

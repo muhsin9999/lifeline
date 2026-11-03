@@ -298,7 +298,7 @@ function NodeDetail({ node, onClose, onSelect }: { node: ArchNode; onClose: () =
           <ul className="space-y-1">
             {node.source.map((p) => (
               <li key={p}>
-                <a href={`${REPO}/${p}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-mono text-xs text-ink hover:underline">
+                <a href={`${REPO}/${p.split("/").map(encodeURIComponent).join("/")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-mono text-xs text-ink hover:underline">
                   {p} <ExternalLinkIcon aria-hidden className="size-3" />
                 </a>
               </li>

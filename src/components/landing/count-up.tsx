@@ -7,7 +7,7 @@ import { useEffect, useRef } from "react";
 // renders the real figure, so it reads right without JavaScript; the count writes straight to the text.
 export function CountUp({ value, className }: { value: string; className?: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
-  const seen = useInView(ref, { once: true, amount: 0.8 });
+  const seen = useInView(ref, { once: true, amount: 0.4 });
   const still = useReducedMotion();
 
   useEffect(() => {

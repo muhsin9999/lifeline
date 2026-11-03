@@ -1,7 +1,7 @@
 "use client";
 
 import { m } from "motion/react";
-import { money } from "@/lib/format";
+import { day, money } from "@/lib/format";
 
 const W = 640;
 const H = 64;
@@ -21,7 +21,7 @@ export function DonorHistory({ gifts, failedAt, open }: { gifts: { at: string; c
   const path = `M0,${BASE} ${regular.map((_, i) => beat(16 + step * (i + 1))).join(" ")} L${end},${BASE}`;
   return (
     <div className="mt-4">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-16 w-full" role="img" aria-label={`${regular.length} gifts${failedAt ? ", then a failed payment" : ""}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-16 w-full" role="img" aria-label={`${regular.length} ${regular.length === 1 ? "gift" : "gifts"}${failedAt ? ", then a failed payment" : ""}`}>
         <m.path d={path} fill="none" stroke="var(--brand)" strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.6, ease: "easeInOut" }} />
         {failedAt ? <m.circle cx={end + 6} cy={BASE} r={5} fill={open ? "var(--brand)" : "var(--recovered)"} stroke="var(--surface)" strokeWidth={2} initial={{ scale: 0 }} animate={{ scale: [0, 1.25, 1] }} transition={{ delay: 1.6, duration: 0.4 }} style={{ transformOrigin: `${end + 6}px ${BASE}px` }} /> : null}
         {failedAt && open ? (
@@ -29,8 +29,8 @@ export function DonorHistory({ gifts, failedAt, open }: { gifts: { at: string; c
         ) : null}
       </svg>
       <p className="sr-only">
-        {regular.length} gifts of {money(regular[0]?.cents ?? 0)}{failedAt ? `, then a failed payment on ${failedAt.slice(0, 10)}` : ""}
-        {recovered ? `, recovered ${recovered.at.slice(0, 10)}` : ""}.
+        {regular.length} {regular.length === 1 ? "gift" : "gifts"} of {money(regular[0]?.cents ?? 0)}{failedAt ? `, then a failed payment on ${day(failedAt)}` : ""}
+        {recovered ? `, recovered ${day(recovered.at)}` : ""}.
       </p>
     </div>
   );

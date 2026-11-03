@@ -26,6 +26,7 @@ export function RescueActions({ failureId, first, amount, amountCents, fixes, re
   const others = fixes.filter((f) => f !== recommended);
   const shown = more ? [recommended, ...others] : [recommended];
   const sendsNote = chosen === "note";
+  const noteMissing = sendsNote && (!subject.trim() ? "Add a subject" : !body.trim() ? "Write the note" : null);
 
   const approve = () =>
     start(async () => {
@@ -82,8 +83,8 @@ export function RescueActions({ failureId, first, amount, amountCents, fixes, re
           {preview && !editing ? <p className="border-t border-line px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-ink/90">{body}</p> : null}
           {editing ? (
             <div className="space-y-2 border-t border-line px-4 py-3">
-              <input value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Subject" className="w-full rounded-md border border-input bg-surface px-2.5 py-1.5 text-sm" />
-              <textarea value={body} onChange={(e) => setBody(e.target.value)} aria-label="Note" rows={7} className="w-full resize-y rounded-md border border-input bg-surface px-2.5 py-2 text-sm leading-relaxed" />
+              <input value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Subject" maxLength={120} aria-invalid={!subject.trim() || undefined} className="w-full rounded-md border border-input bg-surface px-2.5 py-1.5 text-sm aria-[invalid=true]:border-red-400" />
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} aria-label="Note" rows={7} maxLength={2000} aria-invalid={!body.trim() || undefined} className="w-full resize-y rounded-md border border-input bg-surface px-2.5 py-2 text-sm leading-relaxed aria-[invalid=true]:border-red-400" />
             </div>
           ) : null}
         </div>
@@ -98,7 +99,7 @@ export function RescueActions({ failureId, first, amount, amountCents, fixes, re
       </ol>
 
       <div className="flex items-center gap-3">
-        <Button size="lg" className="h-10 px-4 text-sm" disabled={pending} onClick={approve}>
+        <Button size="lg" className="h-10 px-4 text-sm" disabled={pending || !!noteMissing} onClick={approve}>
           {pending ? "Working…" : sendsNote ? `Approve and send to ${first}` : `Approve: ${FIXES[chosen].label.toLowerCase()}`}
         </Button>
         {sendsNote ? (
@@ -106,6 +107,7 @@ export function RescueActions({ failureId, first, amount, amountCents, fixes, re
             {editing ? "Done editing" : "Edit note"}
           </Button>
         ) : null}
+        {noteMissing ? <p role="status" className="text-sm text-muted-foreground">{noteMissing} before sending.</p> : null}
       </div>
     </section>
   );

@@ -8,6 +8,7 @@ import { AgentAvatar, type AgentMood } from "@/components/brand/agent-avatar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { plainWords } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { useDictation, VoiceButton } from "./voice-input";
 
 export type TraceStep = { tool: string; label: string; at: string; detail?: string; plan?: string[] };
 type Chip = { label: string; href?: string; ask?: string };
@@ -30,6 +31,7 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
   const [chat, setChat] = useState<RailMessage[]>([]);
   const restored = useRef(false);
   const [draft, setDraft] = useState("");
+  const voice = useDictation(draft, setDraft, 400);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [memos, setMemos] = useState<Memo[]>([]);
@@ -151,6 +153,7 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
         className="p-4"
         onSubmit={(e) => {
           e.preventDefault();
+          voice.stop();
           askLifeline(draft);
         }}
       >
@@ -169,7 +172,8 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
             <PaperclipIcon className="size-4" />
             <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp,text/csv,text/plain" disabled={busy} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Attach a file" />
           </span>
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={400} disabled={busy} placeholder="Ask Lifeline…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60" />
+          {voice.supported ? <VoiceButton small listening={voice.listening} onToggle={voice.toggle} /> : null}
+          <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={400} disabled={busy} placeholder={voice.listening ? "Listening…" : "Ask Lifeline…"} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60" />
           <button disabled={busy || (!draft.trim() && !file)} className="grid size-7 place-items-center rounded-lg bg-ink text-white disabled:opacity-30" aria-label="Send">
             <ArrowUpIcon className="size-4" />
           </button>
