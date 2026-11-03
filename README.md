@@ -60,7 +60,7 @@ There is no eval suite for the agent yet. The PayPal fixes are covered by tests 
 
 | API | Calls | Where |
 | --- | --- | --- |
-| Subscriptions v1, through the SDK from APIMatic's PayPal Context Plugin | `getSubscription`, `captureSubscription` (`OUTSTANDING_BALANCE`), `suspendSubscription`, `patchSubscription` (`fixed_price`, `outstanding_balance`), `cancelSubscription` | `src/server/paypal/actions.ts`, `src/server/ai/rescue.ts` |
+| Subscriptions v1, through the SDK from APIMatic's PayPal Context Plugin | `getSubscription`, `captureSubscription` (`OUTSTANDING_BALANCE`), `suspendSubscription`, `activateSubscription`, `patchSubscription` (`fixed_price`, `outstanding_balance`), `cancelSubscription` | `src/server/paypal/actions.ts`, `src/server/ai/rescue.ts` |
 | Webhooks | PayPal's certificate check on the raw body (CRC32), with `verify-webhook-signature` as the fallback | `src/lib/paypal-signature.ts`, `src/server/paypal/webhooks.ts` |
 | Events received | `BILLING.SUBSCRIPTION.PAYMENT.FAILED`, `PAYMENT.SALE.COMPLETED`, `BILLING.SUBSCRIPTION.ACTIVATED / SUSPENDED / CANCELLED / EXPIRED / RE-ACTIVATED / UPDATED` | `src/app/api/paypal/webhook/route.ts` |
 
@@ -72,7 +72,19 @@ Every Subscriptions call runs on the PayPal TypeScript SDK that [APIMatic's PayP
 - **Lost answers are re-read, not guessed.** If PayPal's reply never arrives, Lifeline reads the subscription again to find out what happened, instead of reporting a failure that might have succeeded.
 - **Refusals mapped clearly.** PayPal's own reason reaches the officer for a 4xx about the request. Our credentials (401/403), rate limits (429) and PayPal outages (5xx) get fixed messages.
 - **`.asApiResult()`** for the calls that return no body (suspend, cancel, patch).
-- **Tested the plugin's way.** `tests/fixes.test.ts` runs the real SDK against a fake `fetch` that answers in PayPal's wire format: 12 cases covering retry, pause and lower, PayPal's refusals (422, 401), dropped answers settled by a re-read or left unknown, a fix that wasn't offered, and a second click.
+- **Tested the plugin's way.** `tests/fixes.test.ts` runs the real SDK against a fake `fetch` that answers in PayPal's wire format: 17 cases covering retry, pause and lower, PayPal's refusals (422, 401), dropped answers settled by a re-read or left unknown, a fix that wasn't offered, and a second click.
+
+**The plugin in use.** Claude Code's own records show the plugin installed on 22 Oct, then six of its skills loading while Lifeline's PayPal layer was built that evening (times in UTC). The contract sheet was first committed minutes later:
+
+![Claude Code's plugin record and session log: APIMatic's PayPal plugin 0.4.1, six of its skills loaded on 22 Oct 2026, and paypal-plan.md first committed at 18:09 UTC](docs/apimatic/plugin-skills-22-oct.png)
+
+**The contract sheet,** [`paypal-plan.md`](paypal-plan.md):
+
+![The top of paypal-plan.md: written with APIMatic's PayPal Context Plugin](docs/apimatic/paypal-plan.png)
+
+**The PayPal fix tests passing,** written with the plugin's testing skill:
+
+![Vitest output: tests/fixes.test.ts, 17 of 17 passing](docs/apimatic/paypal-tests.png)
 
 To reproduce: `npx context-plugins install paypal`, then `/reload-plugins` in Claude Code.
 
@@ -114,7 +126,7 @@ npm run dev                     # http://localhost:3000
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Vitest: 12 PayPal fix tests against a fake PayPal (`tests/fixes.test.ts`) and the webhook signature tests (`src/lib/paypal-signature.test.ts`) |
+| `npm test` | Vitest: 17 PayPal fix tests against a fake PayPal (`tests/fixes.test.ts`), 7 practice-copy tests (`tests/copies.test.ts`) and the webhook signature tests (`src/lib/paypal-signature.test.ts`) |
 | `npm run lint` · `npm run typecheck` | ESLint and TypeScript |
 
 ## Built with

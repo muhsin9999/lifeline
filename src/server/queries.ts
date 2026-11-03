@@ -177,13 +177,25 @@ export async function owedNow(subscriptionId: string | null) {
   }
 }
 
-/** Donors on a daily plan, told apart by their real PayPal gifts: 4 or more in 14 days can't be a monthly gift. */
+/**
+ * Donors on a daily plan, told apart by what PayPal really did: two regular gifts, or two failed payments, within
+ * 3 days of each other can't be a monthly gift. Recovery charges are left out (a retry can land a day after a
+ * monthly failure).
+ */
 export async function dailyDonors(orgId: string) {
-  const rows = await db
-    .select({ donorId: s.gifts.donorId })
-    .from(s.gifts)
-    .where(and(eq(s.gifts.orgId, orgId), gte(s.gifts.chargedAt, new Date(Date.now() - 14 * 86_400_000))))
-    .groupBy(s.gifts.donorId)
-    .having(sql`count(*) >= 4`);
-  return new Set(rows.map((r) => r.donorId));
+  const since = new Date(Date.now() - 90 * 86_400_000);
+  const [gifts, failures] = await Promise.all([
+    db.select({ donorId: s.gifts.donorId, at: s.gifts.chargedAt }).from(s.gifts).where(and(eq(s.gifts.orgId, orgId), gte(s.gifts.chargedAt, since), sql`${s.gifts.recoveredFailureId} is null`)),
+    db.select({ donorId: s.failures.donorId, at: s.failures.failedAt }).from(s.failures).where(and(eq(s.failures.orgId, orgId), gte(s.failures.failedAt, since))),
+  ]);
+  const daily = new Set<string>();
+  for (const series of [gifts, failures]) {
+    const by = new Map<string, number[]>();
+    for (const r of series) by.set(r.donorId, [...(by.get(r.donorId) ?? []), r.at.getTime()]);
+    for (const [donorId, times] of by) {
+      times.sort((x, y) => x - y);
+      if (times.some((t, i) => i > 0 && t - times[i - 1] < 3 * 86_400_000)) daily.add(donorId);
+    }
+  }
+  return daily;
 }
