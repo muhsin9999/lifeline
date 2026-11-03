@@ -8,13 +8,13 @@ import { NAV } from "./sidebar";
 
 // Phones and small tablets, where the sidebar is hidden: a slim top bar (the logo goes back to the landing page)
 // and a tab bar along the bottom with the same four pages.
-export function MobileTop({ orgName }: { orgName: string }) {
+export function MobileTop({ orgName, practice = false }: { orgName: string; practice?: boolean }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-paper/95 px-4 backdrop-blur md:hidden">
       <Link href="/" aria-label="Lifeline home page">
         <Logo size="sm" />
       </Link>
-      <span className="truncate pl-3 text-xs text-muted-foreground">{orgName}</span>
+      <span className="truncate pl-3 text-xs text-muted-foreground">{practice ? `${orgName} · practice copy` : orgName}</span>
     </header>
   );
 }

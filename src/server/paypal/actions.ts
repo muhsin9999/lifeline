@@ -111,6 +111,7 @@ export async function runFix(input: { orgId: string; failureId: string; fix: Fix
     return { ok: false, status: 400, message: "The new amount must be more than $0 and less than the current gift." };
   const subscriptionId = failure.donor.paypalSubscriptionId;
   if (!subscriptionId) return { ok: false, status: 409, message: "This donor has no PayPal subscription yet." };
+  const practice = input.fix !== "note" && (await inPracticeCopy(input.orgId));
 
   // Retry charges what PayPal says is owed, read before the claim: a read that fails is not a write in doubt.
   let owed: { currencyCode: string; value: string } | null = null;
@@ -124,6 +125,7 @@ export async function runFix(input: { orgId: string; failureId: string; fix: Fix
     }
     if (!owed || Number(owed.value) <= 0) return { ok: false, status: 409, message: "PayPal shows nothing owed on this gift, so there's nothing to retry." };
   }
+  if (practice) return practiceRun(input, failure, practiceCall(input.fix, subscriptionId, { owed, newAmountCents: input.newAmountCents }));
 
   const c = await claimAction({ claimKey: `${input.fix}:${failure.id}`, orgId: input.orgId, failureId: failure.id, kind: input.fix });
   if (!c.claimed) {
@@ -169,7 +171,7 @@ export async function runFix(input: { orgId: string; failureId: string; fix: Fix
       await db
         .insert(s.gifts)
         .values({ orgId: input.orgId, donorId: failure.donorId, paypalTransactionId: tx.id, amountCents: cents(owed) ?? failure.amountCents, chargedAt: new Date(tx.time), recoveredFailureId: failure.id })
-        .onConflictDoNothing({ target: s.gifts.paypalTransactionId });
+        .onConflictDoNothing({ target: [s.gifts.orgId, s.gifts.paypalTransactionId] });
     } else {
       const call =
         input.fix === "pause"
@@ -247,6 +249,8 @@ export async function resumeGift(input: { orgId: string; failureId: string; appr
     }
   }
 
+  if (await inPracticeCopy(input.orgId)) return practiceRun({ ...input, fix: "resume" }, failure, practiceCall("resume", subscriptionId, {}));
+
   const c = await claimAction({ claimKey: `resume:${failure.id}`, orgId: input.orgId, failureId: failure.id, kind: "resume" });
   if (!c.claimed) {
     if (c.row.status === "done") return { ok: true, message: "Already done." };
@@ -285,11 +289,11 @@ export async function resumeGift(input: { orgId: string; failureId: string; appr
   }
 }
 
-async function afterResume(input: { orgId: string; approvedBy: string }, failure: FailureWithDonor, claim: Claim) {
+async function afterResume(input: { orgId: string; approvedBy: string }, failure: FailureWithDonor, claim: Claim, practice?: string) {
   if (failure.status === "paused") await db.update(s.failures).set({ status: "watching", resolvedAt: null }).where(eq(s.failures.id, failure.id));
   await db.update(s.donors).set({ status: "ACTIVE" }).where(eq(s.donors.id, failure.donorId));
-  await db.insert(s.events).values({ orgId: input.orgId, donorId: failure.donorId, source: "lifeline", type: "FIX.RESUME", summary: `Resumed the gift: ${failure.donor.name}`, verified: true });
-  await db.insert(s.audit).values({ orgId: input.orgId, kind: "fix.resume", subjectType: "failure", subjectId: failure.id, output: { claim: claim.claimKey }, approvedBy: input.approvedBy });
+  await db.insert(s.events).values({ orgId: input.orgId, donorId: failure.donorId, source: "lifeline", type: "FIX.RESUME", summary: `${practice ? "Practice: " : ""}Resumed the gift: ${failure.donor.name}`, verified: !practice });
+  await db.insert(s.audit).values({ orgId: input.orgId, kind: "fix.resume", subjectType: "failure", subjectId: failure.id, output: { claim: claim.claimKey, ...(practice && { practice: true, wouldSend: practice }) }, approvedBy: input.approvedBy });
 }
 
 const DONE: Record<FixId, (first: string) => string> = {
@@ -304,7 +308,7 @@ const DONE: Record<FixId, (first: string) => string> = {
 type FailureWithDonor = NonNullable<Awaited<ReturnType<typeof db.query.failures.findFirst>>> & { donor: typeof s.donors.$inferSelect };
 
 /** Records what the fix changed: the rescue's state, the donor mirror, the timeline and the audit trail. */
-async function afterFix(input: { orgId: string; fix: FixId; approvedBy: string; newAmountCents?: number }, failure: FailureWithDonor, claim: Claim) {
+async function afterFix(input: { orgId: string; fix: FixId; approvedBy: string; newAmountCents?: number }, failure: FailureWithDonor, claim: Claim, practice?: string) {
   const now = new Date();
   const status = input.fix === "retry" ? "recovered" : input.fix === "pause" ? "paused" : input.fix === "cancel" ? "cancelled" : "watching";
   await db
@@ -315,6 +319,43 @@ async function afterFix(input: { orgId: string; fix: FixId; approvedBy: string; 
   if (input.fix === "cancel") await db.update(s.donors).set({ status: "CANCELLED" }).where(eq(s.donors.id, failure.donorId));
   if (input.fix === "lower" && input.newAmountCents) await db.update(s.donors).set({ amountCents: input.newAmountCents }).where(eq(s.donors.id, failure.donorId));
   if (input.fix === "retry" || input.fix === "forgive") await db.update(s.donors).set({ outstandingCents: 0 }).where(eq(s.donors.id, failure.donorId));
-  await db.insert(s.events).values({ orgId: input.orgId, donorId: failure.donorId, source: "lifeline", type: `FIX.${input.fix.toUpperCase()}`, summary: `${FIXES[input.fix].label}: ${failure.donor.name}`, verified: true });
-  await db.insert(s.audit).values({ orgId: input.orgId, kind: `fix.${input.fix}`, subjectType: "failure", subjectId: failure.id, output: { claim: claim.claimKey, newAmountCents: input.newAmountCents ?? null }, approvedBy: input.approvedBy });
+  await db.insert(s.events).values({ orgId: input.orgId, donorId: failure.donorId, source: "lifeline", type: `FIX.${input.fix.toUpperCase()}`, summary: `${practice ? "Practice: " : ""}${FIXES[input.fix].label}: ${failure.donor.name}`, verified: !practice });
+  await db.insert(s.audit).values({ orgId: input.orgId, kind: `fix.${input.fix}`, subjectType: "failure", subjectId: failure.id, output: { claim: claim.claimKey, newAmountCents: input.newAmountCents ?? null, ...(practice && { practice: true, wouldSend: practice }) }, approvedBy: input.approvedBy });
+}
+
+/** A visitor's practice copy (server/workspace.ts): fixes that would change PayPal are shown, not sent. */
+async function inPracticeCopy(orgId: string) {
+  const org = await db.query.orgs.findFirst({ where: eq(s.orgs.id, orgId), columns: { copyOf: true } });
+  return !!org?.copyOf;
+}
+
+/** The exact PayPal call a fix makes, in words and as the request line. */
+export function practiceCall(fix: FixId | "resume", subscriptionId: string, o: { owed?: { value: string } | null; newAmountCents?: number }) {
+  const path = `/v1/billing/subscriptions/${subscriptionId}`;
+  switch (fix) {
+    case "retry":
+      return `charge the $${o.owed?.value ?? "?"} owed (POST ${path}/capture)`;
+    case "pause":
+      return `pause the gift (POST ${path}/suspend)`;
+    case "cancel":
+      return `cancel the gift (POST ${path}/cancel)`;
+    case "lower":
+      return `lower the gift to $${usd(o.newAmountCents ?? 0)} a month (PATCH ${path})`;
+    case "forgive":
+      return `clear what's owed (PATCH ${path}, outstanding balance to $0.00)`;
+    case "resume":
+      return `resume the gift (POST ${path}/activate)`;
+    case "note":
+      return "send the note";
+  }
+}
+
+/** Runs a fix in a practice copy: the same claim and the same bookkeeping, but PayPal is not called. */
+async function practiceRun(input: { orgId: string; failureId: string; fix: FixId | "resume"; approvedBy: string; newAmountCents?: number }, failure: FailureWithDonor, call: string): Promise<FixResult> {
+  const c = await claimAction({ claimKey: `${input.fix}:${failure.id}`, orgId: input.orgId, failureId: failure.id, kind: input.fix });
+  if (!c.claimed) return c.row.status === "done" ? { ok: true, message: "Already done." } : { ok: false, status: 409, message: "This fix is already in progress.", pending: true };
+  await settle(c.row, "done", { practice: true, wouldSend: call });
+  if (input.fix === "resume") await afterResume(input, failure, c.row, call);
+  else await afterFix({ ...input, fix: input.fix }, failure, c.row, call);
+  return { ok: true, message: `Practice copy, so PayPal wasn't changed. Live, Lifeline would ${call}.` };
 }

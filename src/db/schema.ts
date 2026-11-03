@@ -1,6 +1,6 @@
 // Lifeline's tables. PayPal holds the money; these rows hold what Lifeline knows about each donor and each rescue.
 import { relations, sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -11,6 +11,10 @@ export const orgs = pgTable("orgs", {
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   currency: text("currency").notNull().default("USD"),
+  // A visitor's private practice copy of the food bank, made on their first visit. PayPal ids in a copy are the
+  // real ones (so reads are real), but fixes that would change PayPal are shown, not sent (server/paypal/actions.ts).
+  copyOf: uuid("copy_of").references((): AnyPgColumn => orgs.id, { onDelete: "cascade" }),
+  visitorKey: text("visitor_key").unique(),
   createdAt: createdAt(),
 });
 
@@ -34,11 +38,11 @@ export const donors = pgTable(
     id: id(),
     orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
     planId: uuid("plan_id").references(() => plans.id, { onDelete: "set null" }),
-    key: text("key").notNull().unique(),
+    key: text("key").notNull(),
     name: text("name").notNull(),
     email: text("email").notNull(),
     amountCents: integer("amount_cents").notNull(),
-    paypalSubscriptionId: text("paypal_subscription_id").unique(),
+    paypalSubscriptionId: text("paypal_subscription_id"),
     status: text("status").notNull().default("APPROVAL_PENDING"),
     failedPaymentsCount: integer("failed_payments_count").notNull().default(0),
     outstandingCents: integer("outstanding_cents").notNull().default(0),
@@ -48,7 +52,8 @@ export const donors = pgTable(
     syncedAt: timestamp("synced_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [index("donors_org_idx").on(t.orgId, t.status)],
+  // Unique per workspace, so a practice copy can hold the same real PayPal ids.
+  (t) => [index("donors_org_idx").on(t.orgId, t.status), uniqueIndex("donors_org_key_idx").on(t.orgId, t.key), uniqueIndex("donors_org_subscription_idx").on(t.orgId, t.paypalSubscriptionId)],
 );
 
 // Every monthly gift PayPal charged (PAYMENT.SALE.COMPLETED, or read back from the subscription's transactions).
@@ -59,14 +64,14 @@ export const gifts = pgTable(
     id: id(),
     orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
     donorId: uuid("donor_id").notNull().references(() => donors.id, { onDelete: "cascade" }),
-    paypalTransactionId: text("paypal_transaction_id").notNull().unique(),
+    paypalTransactionId: text("paypal_transaction_id").notNull(),
     amountCents: integer("amount_cents").notNull(),
     // Set when this gift was the one that recovered a failure.
     recoveredFailureId: uuid("recovered_failure_id"),
     chargedAt: timestamp("charged_at", { withTimezone: true }).notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("gifts_org_idx").on(t.orgId, t.chargedAt), index("gifts_donor_idx").on(t.donorId, t.chargedAt)],
+  (t) => [index("gifts_org_idx").on(t.orgId, t.chargedAt), index("gifts_donor_idx").on(t.donorId, t.chargedAt), uniqueIndex("gifts_org_transaction_idx").on(t.orgId, t.paypalTransactionId)],
 );
 
 // One failed gift and its rescue: the agent's diagnosis, the fixes it offers, the officer's choice and the outcome.
@@ -94,7 +99,7 @@ export const failures = pgTable(
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("failures_paypal_event_idx").on(t.paypalEventId), index("failures_org_idx").on(t.orgId, t.status, t.failedAt)],
+  (t) => [uniqueIndex("failures_paypal_event_idx").on(t.orgId, t.paypalEventId), index("failures_org_idx").on(t.orgId, t.status, t.failedAt)],
 );
 
 // The personal note to the donor: drafted by the agent, approved by the officer, then sent.
@@ -148,7 +153,8 @@ export const events = pgTable(
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("events_paypal_event_idx").on(t.paypalEventId), index("events_org_idx").on(t.orgId, t.occurredAt)],
+  // One copy of each PayPal event per workspace (Lifeline's own events have no PayPal id and aren't limited).
+  (t) => [uniqueIndex("events_paypal_event_idx").on(t.orgId, t.paypalEventId).where(sql`${t.paypalEventId} is not null`), index("events_org_idx").on(t.orgId, t.occurredAt)],
 );
 
 // Every webhook delivery, accepted or not, for the webhook health panel.

@@ -11,12 +11,8 @@ const NEEDS = ["new", "diagnosing", "awaiting_approval"] as const;
 const OPEN = [...NEEDS, "acting", "watching"] as const;
 const CLOSED = ["recovered", "lost", "cancelled", "paused"];
 
-/** The nonprofit this deployment serves (one food bank per deployment). */
-export async function currentOrg() {
-  const org = await db.query.orgs.findFirst({ where: eq(s.orgs.slug, process.env.ORG_SLUG || "larkhaven") });
-  if (!org) throw new Error("No organisation found: run the seed");
-  return org;
-}
+/** The food bank this request sees: the visitor's practice copy, or the real one (server/workspace.ts). */
+export { currentOrg } from "./workspace";
 
 const monthStart = (d: Date, offset = 0) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + offset, 1));
 

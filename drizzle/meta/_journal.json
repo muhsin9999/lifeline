@@ -22,6 +22,20 @@
       "when": 1792957451869,
       "tag": "0002_aspiring_ted_forrester",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793698986032,
+      "tag": "0003_practice_copies",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793699343730,
+      "tag": "0004_events_index_paypal_only",
+      "breakpoints": true
     }
   ]
 }

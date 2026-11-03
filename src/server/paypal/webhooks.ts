@@ -1,7 +1,7 @@
 // PayPal webhooks: verify with PayPal, store once, translate to plain English, and open a rescue for a failed gift.
 import "server-only";
 import { X509Certificate } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema as s } from "@/db";
 import { cents, describe, failedPaymentOf, subscriptionIdOf, type WebhookEvent } from "@/lib/paypal-events";
 import { checkSignature, trustedCertUrl } from "@/lib/paypal-signature";
@@ -76,7 +76,9 @@ export async function ingest(event: WebhookEvent, opts: { simulated?: boolean } 
   if (await db.query.events.findFirst({ where: eq(s.events.paypalEventId, event.id), columns: { id: true } })) return { outcome: "duplicate" };
 
   const subscriptionId = subscriptionIdOf(event);
-  const donor = subscriptionId ? await db.query.donors.findFirst({ where: eq(s.donors.paypalSubscriptionId, subscriptionId) }) : null;
+  // PayPal's events belong to the real food bank only; visitors' practice copies hold the same subscription ids.
+  const realOrgs = db.select({ id: s.orgs.id }).from(s.orgs).where(isNull(s.orgs.copyOf));
+  const donor = subscriptionId ? await db.query.donors.findFirst({ where: and(eq(s.donors.paypalSubscriptionId, subscriptionId), inArray(s.donors.orgId, realOrgs)) }) : null;
   const at = event.create_time ? new Date(event.create_time) : new Date();
   let failureId: string | undefined;
 
@@ -92,7 +94,7 @@ export async function ingest(event: WebhookEvent, opts: { simulated?: boolean } 
         orderBy: desc(s.failures.failedAt),
       });
       if (sale.id)
-        await db.insert(s.gifts).values({ orgId: donor.orgId, donorId: donor.id, paypalTransactionId: sale.id, amountCents: amount, chargedAt: at, recoveredFailureId: open?.id ?? null }).onConflictDoNothing({ target: s.gifts.paypalTransactionId });
+        await db.insert(s.gifts).values({ orgId: donor.orgId, donorId: donor.id, paypalTransactionId: sale.id, amountCents: amount, chargedAt: at, recoveredFailureId: open?.id ?? null }).onConflictDoNothing({ target: [s.gifts.orgId, s.gifts.paypalTransactionId] });
       if (open) await db.update(s.failures).set({ status: "recovered", recoveredCents: amount, resolvedAt: at }).where(eq(s.failures.id, open.id));
       await db.update(s.donors).set({ lastPaymentAt: at, outstandingCents: 0 }).where(eq(s.donors.id, donor.id));
     }
@@ -109,7 +111,7 @@ export async function ingest(event: WebhookEvent, opts: { simulated?: boolean } 
           failedAt: f ? new Date(f.time) : at,
           nextRetryAt: f?.nextRetryAt ? new Date(f.nextRetryAt) : null,
         })
-        .onConflictDoNothing({ target: s.failures.paypalEventId })
+        .onConflictDoNothing({ target: [s.failures.orgId, s.failures.paypalEventId] })
         .returning({ id: s.failures.id });
       failureId = row?.id;
       if (row) await db.update(s.donors).set({ failedPaymentsCount: donor.failedPaymentsCount + 1, outstandingCents: donor.outstandingCents + (f?.amountCents ?? donor.amountCents) }).where(eq(s.donors.id, donor.id));
@@ -129,7 +131,7 @@ export async function ingest(event: WebhookEvent, opts: { simulated?: boolean } 
       payload: event as unknown as Record<string, unknown>,
       occurredAt: at,
     })
-    .onConflictDoNothing({ target: s.events.paypalEventId })
+    .onConflictDoNothing({ target: [s.events.orgId, s.events.paypalEventId], where: sql`${s.events.paypalEventId} is not null` })
     .returning({ id: s.events.id });
   if (!inserted.length) return { outcome: "duplicate" };
   return { outcome: donor ? "stored" : "unmatched", ...(failureId && { failureId }) };

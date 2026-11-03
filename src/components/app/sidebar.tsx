@@ -13,7 +13,7 @@ export const NAV = [
   { href: "/activity", label: "Activity", icon: ActivityIcon },
 ];
 
-export function Sidebar({ orgName }: { orgName: string }) {
+export function Sidebar({ orgName, practice = false }: { orgName: string; practice?: boolean }) {
   const pathname = usePathname();
   return (
     <aside className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-r border-line bg-sidebar px-3 py-5 md:flex">
@@ -21,6 +21,11 @@ export function Sidebar({ orgName }: { orgName: string }) {
         <Logo />
       </Link>
       <p className="mt-1 px-2 text-xs text-muted-foreground">{orgName}</p>
+      {practice ? (
+        <p className="mx-2 mt-2 rounded-md bg-muted px-2 py-1.5 text-[0.7rem] leading-snug text-muted-foreground" title="Your own copy of the food bank. Fixes that would change PayPal show the exact call instead of sending it; notes really go to the test inbox.">
+          <span className="font-medium text-ink">Your practice copy.</span> PayPal changes are shown, not sent.
+        </p>
+      ) : null}
       <nav className="mt-7 flex flex-col gap-0.5">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);

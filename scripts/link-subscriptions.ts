@@ -37,7 +37,7 @@ for (const id of ids) {
   const [donor] = await db
     .insert(s.donors)
     .values({ orgId: org.id, key: id, name, email, amountCents: amount, paypalSubscriptionId: id, status: typeof status === "string" ? status : "ACTIVE", startedAt: start, lastPaymentAt: sub.billingInfo?.lastPayment?.time ? new Date(sub.billingInfo.lastPayment.time) : null, failedPaymentsCount: sub.billingInfo?.failedPaymentsCount ?? 0, syncedAt: new Date() })
-    .onConflictDoUpdate({ target: s.donors.key, set: { name, email, amountCents: amount, status: typeof status === "string" ? status : "ACTIVE", syncedAt: new Date() } })
+    .onConflictDoUpdate({ target: [s.donors.orgId, s.donors.key], set: { name, email, amountCents: amount, status: typeof status === "string" ? status : "ACTIVE", syncedAt: new Date() } })
     .returning();
   for (const t of paid)
     await db.insert(s.gifts).values({ orgId: org.id, donorId: donor.id, paypalTransactionId: t.id, amountCents: cents(t.amountWithBreakdown.grossAmount.value) ?? amount, chargedAt: new Date(t.time) }).onConflictDoNothing({ target: s.gifts.paypalTransactionId });

@@ -13,7 +13,7 @@ import { approveFix } from "@/server/actions/rescue";
  * The officer's decision: the recommended fix first, the others one click away, what happens next, and the note.
  * Nothing reaches PayPal or the donor until the officer presses the button.
  */
-export function RescueActions({ failureId, first, amount, amountCents, fixes, recommended, retryOn, note }: { failureId: string; first: string; amount: string; amountCents: number; fixes: FixId[]; recommended: FixId; retryOn: string | null; note: { subject: string; body: string; to: string } | null }) {
+export function RescueActions({ failureId, first, amount, amountCents, fixes, recommended, retryOn, note, practice = false }: { failureId: string; first: string; amount: string; amountCents: number; fixes: FixId[]; recommended: FixId; retryOn: string | null; note: { subject: string; body: string; to: string } | null; practice?: boolean }) {
   const router = useRouter();
   const [chosen, setChosen] = useState<FixId>(recommended);
   const [more, setMore] = useState(false);
@@ -91,7 +91,7 @@ export function RescueActions({ failureId, first, amount, amountCents, fixes, re
       ) : null}
 
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs text-muted-foreground">
-        <li>{sendsNote ? "Note goes out when you approve" : "PayPal is updated when you approve"}</li>
+        <li>{sendsNote ? "Note goes out when you approve" : practice ? "Practice copy: you’ll see the exact PayPal call, not sent" : "PayPal is updated when you approve"}</li>
         <li aria-hidden>→</li>
         {retryOn && chosen !== "retry" ? <li>PayPal retries {retryOn}</li> : null}
         {retryOn && chosen !== "retry" ? <li aria-hidden>→</li> : null}

@@ -98,6 +98,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
                 recommended={(r.recommendedFix ?? "note") as FixId}
                 retryOn={r.nextRetryAt ? day(r.nextRetryAt) : null}
                 note={note ? { subject: note.subject, body: note.body, to: note.to } : null}
+                practice={!!org.copyOf}
               />
             </>
           ) : (

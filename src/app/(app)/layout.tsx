@@ -22,8 +22,8 @@ async function OrgChrome() {
   const org = await currentOrg();
   return (
     <>
-      <Sidebar orgName={org.name} />
-      <MobileTop orgName={org.name} />
+      <Sidebar orgName={org.name} practice={!!org.copyOf} />
+      <MobileTop orgName={org.name} practice={!!org.copyOf} />
     </>
   );
 }

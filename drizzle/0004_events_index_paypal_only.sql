@@ -1,0 +1,2 @@
+DROP INDEX "events_paypal_event_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "events_paypal_event_idx" ON "events" USING btree ("org_id","paypal_event_id") NULLS NOT DISTINCT WHERE "events"."paypal_event_id" is not null;
