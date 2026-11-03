@@ -38,7 +38,7 @@ async function Donor({ params }: { params: Promise<{ id: string }> }) {
   if (!d) notFound();
   const first = d.name.split(" ")[0];
   const open = d.failures.find((f) => OPEN.includes(f.status));
-  // Paused by Tunde, or suspended by PayPal after failed payments: resumed through the latest rescue.
+  // Paused by Sam, or suspended by PayPal after failed payments: resumed through the latest rescue.
   const paused = d.status === "SUSPENDED" ? (d.failures.find((f) => f.status === "paused") ?? d.failures[0]) : undefined;
   const owed = paused && paused.status !== "paused" ? ((await owedNow(d.paypalSubscriptionId)) ?? d.outstandingCents) : 0;
   const given = d.gifts.reduce((t, g) => t + g.amountCents, 0);

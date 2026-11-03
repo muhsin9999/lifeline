@@ -243,7 +243,7 @@ function Key({ tab }: { tab: Tab }) {
       <p className="mb-1.5 font-semibold">Key</p>
       <p className="flex items-center gap-2"><span className="h-px w-6 bg-[#9aa1a9]" /> Lifeline calls it</p>
       <p className="flex items-center gap-2"><span className="w-6 border-t border-dashed border-[#9aa1a9]" /> An event, or the donor</p>
-      <p className="flex items-center gap-2"><span className="h-0.5 w-6 bg-caution" /> Needs Tunde’s approval</p>
+      <p className="flex items-center gap-2"><span className="h-0.5 w-6 bg-caution" /> Needs Sam’s approval</p>
       {tab !== "map" ? <p className="flex items-center gap-2"><span className="h-0.5 w-6 bg-ink" /> Active now</p> : <p className="mt-1 text-muted-foreground">Hover or click any part.</p>}
     </div>
   );
@@ -336,7 +336,7 @@ function TrustPanel({ on, onToggle, onSelect }: { on: boolean; onToggle: (v: boo
       </ul>
       <p className="mt-4 flex gap-2.5 rounded-lg bg-recovered-tint px-3 py-2.5 text-sm text-recovered">
         <CheckIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-        <span>Layers work together: read-only tools, fixes checked in code, Tunde’s approval, a claim before every PayPal write, and verified webhooks.</span>
+        <span>Layers work together: read-only tools, fixes checked in code, Sam’s approval, a claim before every PayPal write, and verified webhooks.</span>
       </p>
     </div>
   );

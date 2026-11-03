@@ -7,7 +7,7 @@ import { AgentAvatar, type AgentMood } from "@/components/brand/agent-avatar";
 import { cn } from "@/lib/utils";
 
 // The hero's agent card: a replay of the first real rescue on the live sandbox. Cora's $1 test gift failed with
-// PAYER_CANNOT_PAY; the agent read PayPal, recommended a note, Tunde approved it and the email went out. The steps
+// PAYER_CANNOT_PAY; the agent read PayPal, recommended a note, Sam approved it and the email went out. The steps
 // are that rescue's real tool calls, in plain words.
 const STEPS = ["Read Cora's PayPal subscription", "Checked the failed payment", "Looked at her past gifts", "Drafted a note to Cora"];
 const STEP_MS = 1100;

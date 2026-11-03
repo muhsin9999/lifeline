@@ -207,7 +207,24 @@ export const failuresRelations = relations(failures, ({ one, many }) => ({
 }));
 export const notesRelations = relations(notes, ({ one }) => ({ failure: one(failures, { fields: [notes.failureId], references: [failures.id] }) }));
 
-// What Tunde told Lifeline AI to remember ("Cora lost her job"). The rescue agent reads a donor's memos when it
+// Ask Lifeline's conversations: one row per question or answer, grouped by thread, so the officer can start a new
+// chat and go back to an earlier one. Each practice copy has its own.
+export const askMessages = pgTable(
+  "ask_messages",
+  {
+    id: id(),
+    orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
+    thread: uuid("thread").notNull(),
+    role: text("role").notNull(), // user | assistant
+    text: text("text").notNull(),
+    file: text("file"),
+    links: jsonb("links"), // [{ label, href }] on answers
+    createdAt: createdAt(),
+  },
+  (t) => [index("ask_messages_org_idx").on(t.orgId, t.thread, t.createdAt)],
+);
+
+// What Sam told Lifeline AI to remember ("Cora lost her job"). The rescue agent reads a donor's memos when it
 // diagnoses their next failed gift; Ask Lifeline reads them all.
 export const memos = pgTable(
   "memos",

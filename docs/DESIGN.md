@@ -1,6 +1,6 @@
 # Design: "Pulse"
 
-**Goal:** within seconds, a judge should see a real product for one person. Tunde runs fundraising at a small food bank. Monthly donors' gifts sometimes fail silently, and Lifeline catches each one and wins the donor back. The screen should be calm and warm, with one signature motif: the heartbeat.
+**Goal:** within seconds, a judge should see a real product for one person. Sam runs fundraising at a small food bank. Monthly donors' gifts sometimes fail silently, and Lifeline catches each one and wins the donor back. The screen should be calm and warm, with one signature motif: the heartbeat.
 
 Chosen on 22 Oct 2026 after two image-model rounds (Pulse, Harvest and Signal, then a merged round). The user picked the Pulse look and asked for the chat rail, the white-and-black avatar and real KPIs.
 

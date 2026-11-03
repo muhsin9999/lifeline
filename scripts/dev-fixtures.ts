@@ -24,18 +24,18 @@ const NOW = new Date();
 const daysAgo = (d: number, h = 10) => new Date(Date.UTC(NOW.getUTCFullYear(), NOW.getUTCMonth(), NOW.getUTCDate() - d, h));
 
 const DONORS: { name: string; amount: number; months: number; day: number; fate?: "open" | "recovered" | "lost" | "diagnosing" }[] = [
-  { name: "Grace Okafor", amount: 2500, months: 14, day: 1, fate: "open" },
-  { name: "Daniel Mensah", amount: 4000, months: 9, day: 3, fate: "open" },
-  { name: "Amina Yusuf", amount: 1500, months: 22, day: 2, fate: "diagnosing" },
-  { name: "Esther Bello", amount: 6000, months: 6, day: 5, fate: "recovered" },
-  { name: "Samuel Adeyemi", amount: 2000, months: 11, day: 8, fate: "recovered" },
+  { name: "Grace Turner", amount: 2500, months: 14, day: 1, fate: "open" },
+  { name: "Daniel Hughes", amount: 4000, months: 9, day: 3, fate: "open" },
+  { name: "Emily Carter", amount: 1500, months: 22, day: 2, fate: "diagnosing" },
+  { name: "Esther Collins", amount: 6000, months: 6, day: 5, fate: "recovered" },
+  { name: "Samuel Price", amount: 2000, months: 11, day: 8, fate: "recovered" },
   { name: "Chloe Lewis", amount: 2500, months: 4, day: 12, fate: "lost" },
   { name: "Jordan Miller", amount: 5000, months: 18, day: 15 },
   { name: "Avery Thompson", amount: 1000, months: 7, day: 1 },
   { name: "Priya Raman", amount: 7500, months: 13, day: 20 },
-  { name: "Kwame Asante", amount: 2500, months: 16, day: 9 },
+  { name: "Marcus Hill", amount: 2500, months: 16, day: 9 },
   { name: "Lucia Romero", amount: 3500, months: 5, day: 25 },
-  { name: "Tomasz Nowak", amount: 2000, months: 10, day: 18 },
+  { name: "Tom Nolan", amount: 2000, months: 10, day: 18 },
 ];
 
 await db.delete(s.orgs).where(eq(s.orgs.slug, "larkhaven"));
@@ -111,7 +111,7 @@ for (const [i, d] of DONORS.entries()) {
       failureId: failure.id,
       to: donor.email,
       subject: "Your monthly gift didn’t go through",
-      body: `Hi ${d.name.split(" ")[0]},\n\nPayPal couldn’t take this month’s gift to Larkhaven Food Bank. Nothing is wrong on your side that we can see, but updating your payment in PayPal will keep your gift going.\n\nThank you for ${d.months} months of meals.\nTunde, Larkhaven Food Bank`,
+      body: `Hi ${d.name.split(" ")[0]},\n\nPayPal couldn’t take this month’s gift to Larkhaven Food Bank. Nothing is wrong on your side that we can see, but updating your payment in PayPal will keep your gift going.\n\nThank you for ${d.months} months of meals.\nSam, Larkhaven Food Bank`,
     });
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { m } from "motion/react";
-import { ArrowUpIcon, BrainIcon, CheckIcon, ChevronDownIcon, FileTextIcon, LoaderIcon, PaperclipIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowUpIcon, BrainIcon, CheckIcon, ChevronDownIcon, FileTextIcon, HistoryIcon, LoaderIcon, PaperclipIcon, SquarePenIcon, XIcon } from "lucide-react";
 import { AgentAvatar, type AgentMood } from "@/components/brand/agent-avatar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { plainWords } from "@/lib/labels";
@@ -23,13 +23,34 @@ export type RailMessage =
  * live tool calls, and anywhere the officer's own questions ("Ask Lifeline"), answered from real data with the
  * steps shown. Main content always comes first, so the rail is fixed-width and quiet.
  */
-const KEPT = "lifeline-ask";
+const OPEN_THREAD = "lifeline-thread";
 type Memo = { id: string; text: string; donor: string | null };
+type Saved = { id: string; thread: string; role: "user" | "assistant"; text: string; file: string | null; links: { label: string; href: string }[] | null; at: string };
+type Thread = { id: string; title: string; at: string; count: number };
+const when = (iso: string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+const toRail = (m: Saved): RailMessage => (m.role === "user" ? { kind: "user", text: m.text, file: m.file ?? undefined } : { kind: "text", text: m.text, chips: m.links ?? undefined });
+
+/** Conversations, newest first, titled by their first question. */
+function threadsOf(saved: Saved[]): Thread[] {
+  const by = new Map<string, Thread>();
+  for (const m of saved) {
+    const t = by.get(m.thread) ?? { id: m.thread, title: "", at: m.at, count: 0 };
+    if (!t.title && m.role === "user") t.title = m.text.slice(0, 60);
+    t.at = m.at;
+    t.count++;
+    by.set(m.thread, t);
+  }
+  return [...by.values()].map((t) => ({ ...t, title: t.title || "Conversation" })).sort((a, b) => b.at.localeCompare(a.at));
+}
 
 export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: { mood?: AgentMood; status?: string; messages: RailMessage[]; suggestions?: string[] }) {
-  // The conversation stays with this browser tab across pages, so "what did we just talk about?" works.
+  // Conversations are saved for this workspace. The open one stays open across pages in this tab; "New chat"
+  // starts another and History switches back to any earlier one.
   const [chat, setChat] = useState<RailMessage[]>([]);
-  const restored = useRef(false);
+  const [saved, setSaved] = useState<Saved[]>([]);
+  const [thread, setThread] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const threads = threadsOf(saved);
   const [draft, setDraft] = useState("");
   const voice = useDictation(draft, setDraft, 400);
   const [file, setFile] = useState<File | null>(null);
@@ -38,19 +59,40 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
-    if (!restored.current) return;
+  }, [chat, showHistory]);
+  const openThread = (id: string, from: Saved[] = saved) => {
+    setThread(id);
+    setChat(from.filter((m) => m.thread === id).map(toRail));
+    setShowHistory(false);
     try {
-      sessionStorage.setItem(KEPT, JSON.stringify(chat.filter((x) => x.kind !== "work").slice(-30)));
+      sessionStorage.setItem(OPEN_THREAD, id);
     } catch {}
-  }, [chat]);
-  // After mount (never during render, so server and browser agree): bring back this tab's conversation.
+  };
+  const newChat = () => {
+    setThread(null);
+    setChat([]);
+    setShowHistory(false);
+    try {
+      sessionStorage.removeItem(OPEN_THREAD);
+    } catch {}
+  };
+  const loadSaved = () =>
+    fetch("/api/ask", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { messages?: Saved[] }) => d.messages ?? [])
+      .catch(() => [] as Saved[]);
+  // After mount (never during render, so server and browser agree): load the saved conversations and reopen the
+  // one this tab had open.
   useEffect(() => {
-    let kept: RailMessage[] = [];
-    try {
-      kept = (JSON.parse(sessionStorage.getItem(KEPT) ?? "[]") as RailMessage[]).filter((x) => x.kind !== "work");
-    } catch {}
-    restored.current = true;
-    if (kept.length) queueMicrotask(() => setChat(kept));
+    loadSaved().then((all) => {
+      setSaved(all);
+      let open: string | null = null;
+      try {
+        open = sessionStorage.getItem(OPEN_THREAD);
+      } catch {}
+      if (open && all.some((m) => m.thread === open)) openThread(open, all);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const loadMemos = () =>
     fetch("/api/memos", { cache: "no-store" })
@@ -65,6 +107,14 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
     const q = question.trim() || (file ? `I've attached ${file.name}.` : "");
     if (!q || busy) return;
     const attached = file;
+    const id = thread ?? crypto.randomUUID();
+    if (!thread) {
+      setThread(id);
+      try {
+        sessionStorage.setItem(OPEN_THREAD, id);
+      } catch {}
+    }
+    setShowHistory(false);
     setBusy(true);
     setDraft("");
     setFile(null);
@@ -75,7 +125,8 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
     try {
       const form = new FormData();
       form.set("question", q);
-      form.set("history", JSON.stringify(history));
+      form.set("history", JSON.stringify(history.slice(-12)));
+      form.set("thread", id);
       if (attached) form.set("file", attached);
       const res = await fetch("/api/ask", { method: "POST", body: form });
       if (!res.ok || !res.body) {
@@ -105,6 +156,7 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
     } finally {
       setBusy(false);
       loadMemos();
+      loadSaved().then(setSaved);
     }
   }
 
@@ -115,13 +167,43 @@ export function ChatRail({ mood = "idle", status, messages, suggestions = [] }: 
     <>
       <header className="flex items-center gap-3 px-5 pt-5 pb-3">
         <AgentAvatar glossy mood={busy ? "working" : mood} className="size-12" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Lifeline AI</p>
           <p className="truncate text-xs text-muted-foreground">{busy ? "Looking into your question…" : (status ?? "Your giving recovery assistant")}</p>
         </div>
+        <button type="button" onClick={() => setShowHistory((v) => !v)} aria-pressed={showHistory} aria-label="Past conversations" title="Past conversations" className={cn("grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-ink", showHistory && "bg-muted text-ink")}>
+          <HistoryIcon className="size-4" />
+        </button>
+        <button type="button" onClick={newChat} disabled={busy} aria-label="New chat" title="New chat" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-ink disabled:opacity-40">
+          <SquarePenIcon className="size-4" />
+        </button>
       </header>
-      {memos.length > 0 && <Remembered memos={memos} onForget={(id) => fetch(`/api/memos?id=${id}`, { method: "DELETE" }).then(loadMemos)} />}
-      <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+      {showHistory ? (
+        <section className="flex-1 overflow-y-auto border-t border-line" aria-label="Past conversations">
+          <div className="flex items-center gap-2 px-5 py-3">
+            <button type="button" onClick={() => setShowHistory(false)} aria-label="Back to the chat" className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-ink">
+              <ArrowLeftIcon className="size-4" />
+            </button>
+            <p className="text-sm font-medium">Past conversations</p>
+          </div>
+          {threads.length ? (
+            <ul className="space-y-1 px-3 pb-4">
+              {threads.map((t) => (
+                <li key={t.id}>
+                  <button type="button" disabled={busy} onClick={() => openThread(t.id)} className={cn("flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left hover:bg-surface", t.id === thread && "bg-surface shadow-soft")}>
+                    <span className="truncate text-sm font-medium">{t.title}</span>
+                    <span className="text-xs text-muted-foreground">{when(t.at)} · {t.count} {t.count === 1 ? "message" : "messages"}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-5 py-4 text-sm text-muted-foreground">No conversations yet. Ask anything to start one.</p>
+          )}
+        </section>
+      ) : null}
+      {!showHistory && memos.length > 0 && <Remembered memos={memos} onForget={(id) => fetch(`/api/memos?id=${id}`, { method: "DELETE" }).then(loadMemos)} />}
+      <div ref={scroller} className={cn("flex-1 space-y-3 overflow-y-auto px-5 py-5", showHistory && "hidden")}>
         {all.map((msg, i) =>
           msg.kind === "text" ? (
             <TextMessage key={i} {...msg} onAsk={askLifeline} />

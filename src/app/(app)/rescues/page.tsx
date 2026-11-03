@@ -34,10 +34,10 @@ async function Rescues() {
   const waitingOn = watching.map((f) => f.donor.name.split(" ")[0]);
   const watchLine = waitingOn.length ? ` I'm watching for ${waitingOn.length === 1 ? `${waitingOn[0]}'s` : `${waitingOn.length} donors'`} next gift after your fix.` : "";
   const brief = needs.length
-    ? `${greeting}, Tunde. ${needs.length} ${needs.length === 1 ? "gift needs" : "gifts need"} you.${ready.length ? ` I've looked into ${ready.length}; ${ready.length === 1 ? "a fix is" : "fixes are"} ready.` : ""}${fallback.length ? ` I couldn't finish ${fallback.length === 1 ? "one" : fallback.length}, so standard fixes are waiting.` : ""}${watchLine}`
+    ? `${greeting}, Sam. ${needs.length} ${needs.length === 1 ? "gift needs" : "gifts need"} you.${ready.length ? ` I've looked into ${ready.length}; ${ready.length === 1 ? "a fix is" : "fixes are"} ready.` : ""}${fallback.length ? ` I couldn't finish ${fallback.length === 1 ? "one" : fallback.length}, so standard fixes are waiting.` : ""}${watchLine}`
     : watching.length
-      ? `${greeting}, Tunde. Nothing needs you right now.${watchLine}`
-      : `${greeting}, Tunde. Every gift went through. I'll tell you the moment one fails.`;
+      ? `${greeting}, Sam. Nothing needs you right now.${watchLine}`
+      : `${greeting}, Sam. Every gift went through. I'll tell you the moment one fails.`;
 
   return (
     <>

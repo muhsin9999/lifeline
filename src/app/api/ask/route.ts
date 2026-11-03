@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema as s } from "@/db";
 import { ask } from "@/server/ai/ask";
@@ -13,7 +13,15 @@ import { readUpload, type Upload } from "@/server/uploads";
 const Body = z.object({
   question: z.string().trim().min(1).max(400),
   history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(1200) })).max(12).default([]),
+  thread: z.uuid().optional(),
 });
+
+/** This workspace's conversations (newest 300 messages), for the rail's history. */
+export async function GET() {
+  const org = await currentOrg();
+  const rows = await db.select({ id: s.askMessages.id, thread: s.askMessages.thread, role: s.askMessages.role, text: s.askMessages.text, file: s.askMessages.file, links: s.askMessages.links, at: s.askMessages.createdAt }).from(s.askMessages).where(eq(s.askMessages.orgId, org.id)).orderBy(desc(s.askMessages.createdAt)).limit(300);
+  return Response.json({ messages: rows.reverse() }, { headers: { "cache-control": "no-store" } });
+}
 
 /** A public demo: cap model use per hour across all visitors. */
 const HOURLY_CAP = Number(process.env.ASK_HOURLY_CAP || 60);
@@ -33,7 +41,7 @@ export async function POST(request: Request) {
     try {
       history = JSON.parse(String(form?.get("history") ?? "[]"));
     } catch {}
-    raw = { question: String(form?.get("question") ?? "").trim() || (file ? `I've attached ${file.name}.` : ""), history };
+    raw = { question: String(form?.get("question") ?? "").trim() || (file ? `I've attached ${file.name}.` : ""), history, thread: String(form?.get("thread") ?? "") || undefined };
   } else raw = await request.json().catch(() => null);
   const parsed = Body.safeParse(raw);
   if (!parsed.success) return Response.json({ error: "Ask a question of up to 400 characters." }, { status: 400 });
@@ -41,7 +49,8 @@ export async function POST(request: Request) {
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(s.audit).where(and(eq(s.audit.orgId, org.id), eq(s.audit.kind, "ai.ask"), gte(s.audit.createdAt, new Date(Date.now() - 3_600_000))));
   if (n >= HOURLY_CAP) return Response.json({ error: "Lifeline AI has answered a lot of questions this hour. Try again in a little while." }, { status: 429 });
 
-  const { question, history } = parsed.data;
+  const { question, history, thread } = parsed.data;
+  if (thread) await db.insert(s.askMessages).values({ orgId: org.id, thread, role: "user", text: question, file: file?.name ?? null });
   const fake = fakeAiEnabled();
   const model = fake ? "fake-local" : modelFor("rescue");
   const encoder = new TextEncoder();
@@ -56,6 +65,7 @@ export async function POST(request: Request) {
         const ok = new Set(real.map((r) => r.id));
         const links = run.output.links.filter((l) => ok.has(l.rescue_id)).slice(0, 3).map((l) => ({ label: l.label, href: `/rescues/${l.rescue_id}` }));
         send({ type: "answer", answer: run.output.answer, links, ms: run.ms });
+        if (thread) await db.insert(s.askMessages).values({ orgId: org.id, thread, role: "assistant", text: run.output.answer, links });
         await db.insert(s.audit).values({ orgId: org.id, kind: "ai.ask", model: run.model, inputHash: createHash("sha256").update(question).digest("hex").slice(0, 16), output: { question, answer: run.output.answer, tools: run.tools, ms: run.ms, usage: run.usage } });
       } catch (e) {
         console.error("ask failed", e);

@@ -22,7 +22,7 @@ export async function approveFix(input: z.input<typeof Approve>): Promise<FixRes
   const parsed = Approve.safeParse(input);
   if (!parsed.success) return { ok: false, status: 400, message: "That request wasn't valid." };
   const org = await currentOrg();
-  const result = await runFix({ orgId: org.id, approvedBy: "Tunde (fundraising officer)", ...parsed.data });
+  const result = await runFix({ orgId: org.id, approvedBy: "Sam (fundraising officer)", ...parsed.data });
   revalidatePath("/rescues", "layout");
   return result;
 }
@@ -31,7 +31,7 @@ export async function approveFix(input: z.input<typeof Approve>): Promise<FixRes
 export async function resumeGiftAction(failureId: string): Promise<FixResult> {
   if (!z.uuid().safeParse(failureId).success) return { ok: false, status: 400, message: "That request wasn't valid." };
   const org = await currentOrg();
-  const result = await resumeGift({ orgId: org.id, failureId, approvedBy: "Tunde (fundraising officer)" });
+  const result = await resumeGift({ orgId: org.id, failureId, approvedBy: "Sam (fundraising officer)" });
   revalidatePath("/", "layout");
   return result;
 }

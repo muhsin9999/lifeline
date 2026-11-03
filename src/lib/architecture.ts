@@ -32,10 +32,10 @@ export type ArchNode = {
 
 export const NODES: ArchNode[] = [
   {
-    id: "tunde",
+    id: "sam",
     lane: "people",
     title: "Fundraising officer",
-    sub: "Tunde, at a small food bank",
+    sub: "Sam, at a small food bank",
     logo: "person",
     summary: "Sees which monthly gifts failed and why, approves one fix per rescue, asks questions in plain words and builds reports.",
     facts: [["Approves", "Every change to a donor's PayPal subscription, and every note"], ["Works in", "Rescues, Donors, Reports, Activity"]],
@@ -47,7 +47,7 @@ export const NODES: ArchNode[] = [
     sub: "a PayPal subscription",
     logo: "person",
     summary: "Gives every month through a PayPal subscription. When a gift fails they may never know; Lifeline's note tells them kindly.",
-    facts: [["Gives through", "PayPal Subscriptions"], ["Hears from", "A note Tunde approved"]],
+    facts: [["Gives through", "PayPal Subscriptions"], ["Hears from", "A note Sam approved"]],
   },
   {
     id: "app",
@@ -113,7 +113,7 @@ export const NODES: ArchNode[] = [
     title: "Fix runner",
     sub: "runFix()",
     logo: "wrench",
-    summary: "Carries out the one fix Tunde approved. It claims the action in the database before calling PayPal, sends PayPal a request id so a retry can't charge twice, and if PayPal's answer is lost it re-reads the subscription instead of guessing.",
+    summary: "Carries out the one fix Sam approved. It claims the action in the database before calling PayPal, sends PayPal a request id so a retry can't charge twice, and if PayPal's answer is lost it re-reads the subscription instead of guessing.",
     facts: [["Claims", "paypal_actions.claim_key is unique"], ["Retry", "PayPal-Request-Id = the claim"], ["Tests", "12 against a fake PayPal, all passing"]],
     source: ["src/server/paypal/actions.ts", "tests/fixes.test.ts", "paypal-plan.md"],
     trust: "Claimed before the write; never sent twice",
@@ -124,7 +124,7 @@ export const NODES: ArchNode[] = [
     title: "Note sender",
     sub: "sendNote()",
     logo: "send",
-    summary: "Sends the note Tunde approved (after any edits) to the donor, with a sandbox footer. In this demo every note goes to one test inbox.",
+    summary: "Sends the note Sam approved (after any edits) to the donor, with a sandbox footer. In this demo every note goes to one test inbox.",
     facts: [["Sends with", "Resend"], ["Goes to", "A test inbox (sandbox)"]],
     source: ["src/server/mail.ts"],
   },
@@ -206,9 +206,9 @@ export const NODES: ArchNode[] = [
 export type ArchEdge = { id: string; from: string; to: string; label: string; kind?: "flow" | "event" | "gate" };
 
 export const EDGES: ArchEdge[] = [
-  { id: "tunde-app", from: "tunde", to: "app", label: "reviews, approves" },
-  { id: "tunde-ask", from: "tunde", to: "ask", label: "asks" },
-  { id: "tunde-reports", from: "tunde", to: "reports", label: "asks for charts" },
+  { id: "sam-app", from: "sam", to: "app", label: "reviews, approves" },
+  { id: "sam-ask", from: "sam", to: "ask", label: "asks" },
+  { id: "sam-reports", from: "sam", to: "reports", label: "asks for charts" },
   { id: "donor-subs", from: "donor", to: "subscriptions", label: "monthly gift", kind: "event" },
   { id: "events-webhook", from: "events", to: "webhook", label: "signed events", kind: "event" },
   { id: "webhook-neon", from: "webhook", to: "neon", label: "verified event, new rescue" },
@@ -217,7 +217,7 @@ export const EDGES: ArchEdge[] = [
   { id: "diagnose-subs", from: "diagnose", to: "subscriptions", label: "getSubscription" },
   { id: "diagnose-filter", from: "diagnose", to: "fixfilter", label: "fixes checked in code" },
   { id: "diagnose-neon", from: "diagnose", to: "neon", label: "history in, diagnosis out" },
-  { id: "app-runfix", from: "app", to: "runfix", label: "Tunde approves", kind: "gate" },
+  { id: "app-runfix", from: "app", to: "runfix", label: "Sam approves", kind: "gate" },
   { id: "runfix-neon", from: "runfix", to: "neon", label: "claim before the write" },
   { id: "runfix-subs", from: "runfix", to: "subscriptions", label: "capture · suspend · patch · cancel" },
   { id: "runfix-note", from: "runfix", to: "note", label: "send the note" },
@@ -246,7 +246,7 @@ export const JOURNEYS: Journey[] = [
       { title: "The agent writes a plan", sub: "Its forced first move", nodes: ["webhook", "diagnose", "openai"], edges: ["webhook-diagnose", "diagnose-openai"], call: "write_plan([“Read Cora's subscription”, …])" },
       { title: "It reads PayPal", sub: "Read-only, through the SDK", nodes: ["diagnose", "subscriptions"], edges: ["diagnose-subs"], call: "getSubscription → ACTIVE · 1 failed · $1 owed" },
       { title: "Code keeps the possible fixes", sub: "And saves the diagnosis", nodes: ["diagnose", "fixfilter", "neon"], edges: ["diagnose-filter", "diagnose-neon"], call: "kept: note, retry · recommended: note" },
-      { title: "Tunde approves the note", sub: "Nothing happens without it", nodes: ["tunde", "app", "runfix"], edges: ["tunde-app", "app-runfix"], call: "Approve · Send a note" },
+      { title: "Sam approves the note", sub: "Nothing happens without it", nodes: ["sam", "app", "runfix"], edges: ["sam-app", "app-runfix"], call: "Approve · Send a note" },
       { title: "The note goes out", sub: "To the test inbox", nodes: ["runfix", "note", "resend", "donor"], edges: ["runfix-note", "note-resend", "resend-donor"], call: "“Your monthly gift to Larkhaven” · sent" },
     ],
   },
@@ -255,7 +255,7 @@ export const JOURNEYS: Journey[] = [
     title: "A retry brings it back",
     blurb: "The retry fix, end to end",
     steps: [
-      { title: "Tunde approves a retry", sub: "Only offered when money is owed", nodes: ["tunde", "app", "runfix"], edges: ["tunde-app", "app-runfix"], call: "Approve · Retry the charge now" },
+      { title: "Sam approves a retry", sub: "Only offered when money is owed", nodes: ["sam", "app", "runfix"], edges: ["sam-app", "app-runfix"], call: "Approve · Retry the charge now" },
       { title: "The action is claimed first", sub: "A second click can't send it again", nodes: ["runfix", "neon"], edges: ["runfix-neon"], call: "insert paypal_actions (claim_key unique)" },
       { title: "Lifeline asks PayPal to charge", sub: "With the claim as the request id", nodes: ["runfix", "subscriptions"], edges: ["runfix-subs"], call: "captureSubscription({ capture_type: OUTSTANDING_BALANCE })" },
       { title: "PayPal confirms the sale", sub: "A signed, verified event", nodes: ["events", "webhook", "neon"], edges: ["events-webhook", "webhook-neon"], call: "PAYMENT.SALE.COMPLETED · gift recorded" },
@@ -267,10 +267,10 @@ export const JOURNEYS: Journey[] = [
     title: "Ask Lifeline",
     blurb: "A question in plain words",
     steps: [
-      { title: "Tunde asks a question", sub: "From the rail on any page", nodes: ["tunde", "ask"], edges: ["tunde-ask"], call: "“How much have we recovered?”" },
+      { title: "Sam asks a question", sub: "From the rail on any page", nodes: ["sam", "ask"], edges: ["sam-ask"], call: "“How much have we recovered?”" },
       { title: "The hourly cap is checked", sub: "Counted in the audit log", nodes: ["ask", "caps"], edges: ["ask-caps"], call: "ai.ask this hour < 60" },
       { title: "The agent plans and reads", sub: "Read-only tools over Lifeline's data", nodes: ["ask", "openai", "neon"], edges: ["ask-openai", "ask-neon"], call: "get_kpis → recovered this month" },
-      { title: "The answer streams back", sub: "With links only to real rescues", nodes: ["ask", "tunde"], edges: ["tunde-ask"], call: "answer + “Open Cora's rescue”" },
+      { title: "The answer streams back", sub: "With links only to real rescues", nodes: ["ask", "sam"], edges: ["sam-ask"], call: "answer + “Open Cora's rescue”" },
     ],
   },
   {
@@ -278,7 +278,7 @@ export const JOURNEYS: Journey[] = [
     title: "Build a report",
     blurb: "AG Studio's agents make a chart",
     steps: [
-      { title: "Tunde asks for a chart", sub: "In the Reports chat", nodes: ["tunde", "reports"], edges: ["tunde-reports"], call: "“Chart recovered money per week”" },
+      { title: "Sam asks for a chart", sub: "In the Reports chat", nodes: ["sam", "reports"], edges: ["sam-reports"], call: "“Chart recovered money per week”" },
       { title: "AG Studio's agents plan it", sub: "Through Lifeline's server; the key stays there", nodes: ["reports", "openai", "caps"], edges: ["reports-openai", "reports-caps"], call: "POST /api/studio-llm/responses" },
       { title: "The chart lands on the report", sub: "Built from Lifeline's real rows", nodes: ["reports"], edges: [], call: "widget added: line chart · calendar::week" },
     ],
@@ -287,7 +287,7 @@ export const JOURNEYS: Journey[] = [
 
 /** What the AI cannot do, and the piece of the system that stops it. */
 export const CANNOT: { title: string; how: string; node: string }[] = [
-  { title: "Change a gift without Tunde", how: "The agent's tools only read. PayPal writes happen only in runFix, which only an approval starts.", node: "runfix" },
+  { title: "Change a gift without Sam", how: "The agent's tools only read. PayPal writes happen only in runFix, which only an approval starts.", node: "runfix" },
   { title: "Suggest a fix PayPal can't do", how: "The fix filter keeps only fixes PayPal can carry out for this gift right now.", node: "fixfilter" },
   { title: "Charge a donor twice", how: "Each action is claimed before the call, and PayPal gets the claim as its request id.", node: "runfix" },
   { title: "Act on a forged PayPal event", how: "Every webhook is verified against PayPal's signature before it's stored.", node: "webhook" },

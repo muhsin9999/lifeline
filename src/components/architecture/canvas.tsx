@@ -32,7 +32,7 @@ const LANE_H = ROW(5) + 4;
 const DATA_Y = LANE_H + 44;
 // Rows are chosen so straight lines run through empty rows: Ask → OpenAI along row 1, Reports → caps along row 2.
 const SLOT: Record<string, [number, number]> = {
-  tunde: [0, 0], donor: [0, 4],
+  sam: [0, 0], donor: [0, 4],
   app: [0, 0], ask: [0, 1], reports: [0, 2], webhook: [0, 3],
   runfix: [0, 0], diagnose: [0, 3], note: [0, 4],
   openai: [0, 1], caps: [0, 2], fixfilter: [0, 3],
@@ -51,8 +51,8 @@ const ROUTE: Record<string, { sourceHandle: string; targetHandle: string }> = {
   "events-webhook": { sourceHandle: "s-Bottom", targetHandle: "t-Bottom" },
   "donor-subs": { sourceHandle: "s-Top", targetHandle: "t-Top" },
   "diagnose-subs": { sourceHandle: "s-Bottom", targetHandle: "t-Bottom" },
-  "tunde-reports": { sourceHandle: "s-Bottom", targetHandle: "t-Left" },
-  "tunde-ask": { sourceHandle: "s-Bottom", targetHandle: "t-Left" },
+  "sam-reports": { sourceHandle: "s-Bottom", targetHandle: "t-Left" },
+  "sam-ask": { sourceHandle: "s-Bottom", targetHandle: "t-Left" },
 };
 
 export function position(n: ArchNode) {

@@ -26,7 +26,7 @@ export function fakeRescueClient(first: string): OpenAI {
         fixes: ["note", "retry", "pause", "lower"],
         recommended: "note",
         note_subject: "Your monthly gift didn't go through",
-        note_body: `Hi ${first},\n\nPayPal couldn't take this month's gift. Updating your payment in PayPal will keep it going.\n\nThank you,\nTunde, Larkhaven Food Bank`,
+        note_body: `Hi ${first},\n\nPayPal couldn't take this month's gift. Updating your payment in PayPal will keep it going.\n\nThank you,\nSam, Larkhaven Food Bank`,
       },
     };
   };

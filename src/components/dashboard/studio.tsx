@@ -219,7 +219,7 @@ const ai: AgAiHarnessSetup = ({ api }) =>
             adapter,
             name: "Lifeline AI",
             instructions: (ctx, p) =>
-              `${def.instructions?.(ctx, p) ?? ""}\nYou help Tunde, the fundraising officer at a small food bank, understand monthly giving. Amounts are US dollars. Answer from the data; be brief. Prefer line charts for trends over time, and coral for failures. PayPal never shows the nonprofit a donor's card or bank, so never speculate about them.`,
+              `${def.instructions?.(ctx, p) ?? ""}\nYou help Sam, the fundraising officer at a small food bank, understand monthly giving. Amounts are US dollars. Answer from the data; be brief. Prefer line charts for trends over time, and coral for failures. PayPal never shows the nonprofit a donor's card or bank, so never speculate about them.`,
           })
         : directLlmRunner({ ...def, adapter }),
     ),

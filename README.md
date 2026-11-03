@@ -16,7 +16,7 @@ Lifeline watches for them:
 
 ## Try it in 60 seconds
 
-1. Open the live site and click **See it live**. You're Tunde, the fundraising officer at Larkhaven Food Bank.
+1. Open the live site and click **See it live**. You're Sam, the fundraising officer at Larkhaven Food Bank.
 2. **Rescues** shows monthly giving, the giving pulse (a beat for each gift, a coral dip for each failure) and anything that **needs you**.
 3. Open a rescue. You'll see what the agent did: its plan, each PayPal read, the diagnosis and the fixes PayPal can carry out right now.
 4. Choose a fix and **Approve**. You're in your own **practice copy** of the food bank, so judges never use up each other's rescues. A fix that would change PayPal does the real PayPal reads, then shows the exact Subscriptions API call it would send, without sending it. **Send a note** really emails the test inbox. Afterwards the rescue moves on, in your copy only.
@@ -47,7 +47,7 @@ The donors are real PayPal sandbox subscriptions, and they fail for real: one do
 - **Structured result.** A zod-checked diagnosis: the cause in plain words, the fixes it suggests, the one it recommends and a draft note.
 - **Code filters the fixes** (`allowedFixes()`). Only fixes PayPal can carry out for this gift right now survive. It never offers to move a billing date, because PayPal can't.
 - **Honest when it fails.** If the model is unavailable, the rescue still opens with the standard fixes and a template note, and says so.
-- **A person approves.** Only Tunde's approval (a server action) starts `runFix()`, the one place Lifeline writes to PayPal.
+- **A person approves.** Only Sam's approval (a server action) starts `runFix()`, the one place Lifeline writes to PayPal.
 - **Measured on the live site** (24 Oct 2026): one diagnosis took 8.7 s and 2,731 input / 641 output tokens.
 
 **Ask Lifeline** (`src/server/ai/ask.ts`) uses the same loop with four read-only tools over Lifeline's own data. It links only to rescues that exist, and it's capped at 60 questions an hour.
