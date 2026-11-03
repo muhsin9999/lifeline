@@ -118,4 +118,16 @@ describe.skipIf(live)("practice copies (dev database)", () => {
     expect(opened!.orgId).toBe(real.id);
     expect(await ingest(event as never)).toMatchObject({ outcome: "duplicate" });
   }, 60_000);
+
+  it("one completed gift recovers every open rescue for the donor and settles the retry waiting on PayPal", async () => {
+    const donor = (await db.query.donors.findFirst({ where: and(eq(s.donors.orgId, real.id), eq(s.donors.paypalSubscriptionId, SUB)) }))!;
+    const [older] = await db.insert(s.failures).values({ orgId: real.id, donorId: donor.id, status: "watching", amountCents: 100, failedAt: new Date(Date.now() - 2 * 864e5) }).returning();
+    const [retried] = await db.insert(s.failures).values({ orgId: real.id, donorId: donor.id, status: "awaiting_approval", amountCents: 100, failedAt: new Date(Date.now() - 864e5) }).returning();
+    await db.insert(s.paypalActions).values({ claimKey: `retry:${retried.id}`, orgId: real.id, failureId: retried.id, kind: "retry", status: "unknown" });
+    const sale = { id: `WH-SALE-${slug}`, event_type: "PAYMENT.SALE.COMPLETED", create_time: new Date().toISOString(), resource: { id: `SALE-${slug}`, billing_agreement_id: SUB, amount: { total: "3.00", currency: "USD" } } };
+    expect((await ingest(sale as never)).outcome).toBe("stored");
+    for (const id of [older.id, retried.id]) expect((await db.query.failures.findFirst({ where: eq(s.failures.id, id) }))!.status).toBe("recovered");
+    expect(await db.query.gifts.findFirst({ where: and(eq(s.gifts.orgId, real.id), eq(s.gifts.paypalTransactionId, `SALE-${slug}`)) })).toMatchObject({ recoveredFailureId: retried.id, amountCents: 300 });
+    expect(await db.query.paypalActions.findFirst({ where: eq(s.paypalActions.claimKey, `retry:${retried.id}`) })).toMatchObject({ status: "done", result: { via: "webhook", transactionId: `SALE-${slug}` } });
+  }, 60_000);
 });

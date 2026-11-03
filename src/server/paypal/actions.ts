@@ -113,6 +113,17 @@ export async function runFix(input: { orgId: string; failureId: string; fix: Fix
   if (!subscriptionId) return { ok: false, status: 409, message: "This donor has no PayPal subscription yet." };
   const practice = input.fix !== "note" && (await inPracticeCopy(input.orgId));
 
+  // A charge whose answer was lost is settled first, by re-reading PayPal: once it went through, PayPal shows
+  // nothing owed, and the "nothing to retry" check below would otherwise hide that it was ours (live, 3 Nov 2026).
+  const earlier = await db.query.paypalActions.findFirst({ where: eq(s.paypalActions.claimKey, `${input.fix}:${failure.id}`) });
+  if (earlier?.status === "unknown" && input.fix !== "note" && !practice) {
+    if (await reread(client, input.fix, subscriptionId, earlier, input.newAmountCents)) {
+      await afterFix(input, failure, earlier);
+      return { ok: true, message: "PayPal confirms this went through." };
+    }
+    return { ok: false, status: 409, message: "We're still checking with PayPal whether this went through.", pending: true };
+  }
+
   // Retry charges what PayPal says is owed, read before the claim: a read that fails is not a write in doubt.
   let owed: { currencyCode: string; value: string } | null = null;
   if (input.fix === "retry") {

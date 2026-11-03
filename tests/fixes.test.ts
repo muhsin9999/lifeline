@@ -104,6 +104,16 @@ describe.skipIf(live)("approved fixes against a fake PayPal (dev database)", () 
     expect(pp.reads()).toHaveLength(2); // the owed read, then the re-read after the lost answer
   }, 60_000);
 
+  it("retry: a lost capture that went through is confirmed on the next click, though PayPal now shows nothing owed (live, 3 Nov)", async () => {
+    const first = fakePayPal({ [`GET /v1/billing/subscriptions/${SUB}`]: { status: 200, body: subscription() }, [`POST /v1/billing/subscriptions/${SUB}/capture`]: "drop" });
+    expect(await runFix(fix("retry"), first.client)).toMatchObject({ ok: false, pending: true });
+    // Minutes later PayPal has the payment: nothing owed, paid after the claim.
+    const later = fakePayPal({ [`GET /v1/billing/subscriptions/${SUB}`]: { status: 200, body: subscription({ owed: "0.00", lastPaid: new Date(Date.now() + 60_000).toISOString() }) } });
+    expect(await runFix(fix("retry"), later.client)).toEqual({ ok: true, message: "PayPal confirms this went through." });
+    expect(later.writes()).toHaveLength(0);
+    expect((await db.query.failures.findFirst({ where: eq(s.failures.id, ids.failureId) }))!.status).toBe("recovered");
+  }, 60_000);
+
   it("retry: a dropped capture PayPal can't confirm stays unknown, never 'failed', and blocks a second capture", async () => {
     const pp = fakePayPal({ [`GET /v1/billing/subscriptions/${SUB}`]: { status: 200, body: subscription() }, [`POST /v1/billing/subscriptions/${SUB}/capture`]: "drop" });
     const r = await runFix(fix("retry"), pp.client);

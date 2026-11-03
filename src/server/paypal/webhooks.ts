@@ -89,13 +89,21 @@ export async function ingest(event: WebhookEvent, opts: { simulated?: boolean } 
       // A gift went through. If a rescue was open for this donor, this is the gift that recovered it.
       const sale = event.resource as { id?: string; amount?: { total?: string; currency?: string } };
       const amount = cents({ value: sale.amount?.total }) ?? donor.amountCents;
-      const open = await db.query.failures.findFirst({
+      // A gift that went through pays the subscription up, so every open rescue for this donor is recovered (one
+      // capture of the outstanding balance covers several failed days). The gift is linked to the rescue whose retry
+      // Lifeline sent, if one is waiting on PayPal, else the newest, and that retry's claim is settled with PayPal's id.
+      const open = await db.query.failures.findMany({
         where: and(eq(s.failures.donorId, donor.id), inArray(s.failures.status, ["new", "diagnosing", "awaiting_approval", "acting", "watching"])),
         orderBy: desc(s.failures.failedAt),
       });
+      const waiting = open.length
+        ? await db.query.paypalActions.findMany({ where: and(inArray(s.paypalActions.failureId, open.map((f) => f.id)), eq(s.paypalActions.kind, "retry"), inArray(s.paypalActions.status, ["claimed", "unknown"])) })
+        : [];
+      const linked = open.find((f) => waiting.some((w) => w.failureId === f.id)) ?? open[0];
       if (sale.id)
-        await db.insert(s.gifts).values({ orgId: donor.orgId, donorId: donor.id, paypalTransactionId: sale.id, amountCents: amount, chargedAt: at, recoveredFailureId: open?.id ?? null }).onConflictDoNothing({ target: [s.gifts.orgId, s.gifts.paypalTransactionId] });
-      if (open) await db.update(s.failures).set({ status: "recovered", recoveredCents: amount, resolvedAt: at }).where(eq(s.failures.id, open.id));
+        await db.insert(s.gifts).values({ orgId: donor.orgId, donorId: donor.id, paypalTransactionId: sale.id, amountCents: amount, chargedAt: at, recoveredFailureId: linked?.id ?? null }).onConflictDoNothing({ target: [s.gifts.orgId, s.gifts.paypalTransactionId] });
+      for (const f of open) await db.update(s.failures).set({ status: "recovered", recoveredCents: f.id === linked?.id ? amount : 0, resolvedAt: at, ...(waiting.some((w) => w.failureId === f.id) && { chosenFix: "retry" }) }).where(eq(s.failures.id, f.id));
+      for (const w of waiting) await db.update(s.paypalActions).set({ status: "done", result: { via: "webhook", transactionId: sale.id ?? null }, error: null, settledAt: at }).where(eq(s.paypalActions.id, w.id));
       await db.update(s.donors).set({ lastPaymentAt: at, outstandingCents: 0 }).where(eq(s.donors.id, donor.id));
     }
     if (event.event_type === "BILLING.SUBSCRIPTION.PAYMENT.FAILED") {
