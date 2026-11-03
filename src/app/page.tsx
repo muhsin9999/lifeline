@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowDown, ArrowRight, CalendarX, Pause, RotateCw, XCircle } from "lucide-react";
+import { ArrowDown, ArrowRight, CalendarX, Pause, Play, RotateCw, XCircle } from "lucide-react";
 import { AgentAvatar } from "@/components/brand/agent-avatar";
 import { Logo } from "@/components/brand/logo";
 import { CountUp } from "@/components/landing/count-up";
@@ -19,13 +19,14 @@ const NUMBERS = [
   { value: "$129B", label: "projected loss to subscription businesses from failed payments in 2025", source: "Recurly, Jan 2024", href: "https://recurly.com/press/failed-payments-could-cost-subscription-companies-more-than-102-billion-in-2025-uk/" },
 ];
 
-// The five changes Lifeline can make on a donor's PayPal subscription, each with the PayPal call behind it.
+// The six changes Lifeline can make on a donor's PayPal subscription, each with the PayPal call behind it.
 const PAYPAL_FIXES = [
   { id: "retry", label: "Retry the charge", icon: RotateCw },
   { id: "pause", label: "Pause", icon: Pause },
   { id: "lower", label: "Lower the gift", icon: ArrowDown },
   { id: "forgive", label: "Forgive a month", icon: CalendarX },
   { id: "cancel", label: "Cancel", icon: XCircle },
+  { id: "resume", label: "Resume", icon: Play, call: "activateSubscription" },
 ] as const;
 
 export default function Landing() {
@@ -93,12 +94,12 @@ export default function Landing() {
           What Lifeline can do in PayPal
         </h2>
         <p className="mt-3 max-w-xl text-ink-muted">Real changes to the donor&apos;s PayPal subscription, made only after you approve. Or simply a kind note asking them to update their payment.</p>
-        <ul className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {PAYPAL_FIXES.map(({ id, label, icon: Icon }) => (
+        <ul className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {PAYPAL_FIXES.map(({ id, label, icon: Icon, ...f }) => (
             <li key={id} className="flex flex-col items-center rounded-2xl border border-line bg-surface px-4 py-6 text-center shadow-soft">
               <Icon className="size-7 text-ink" strokeWidth={1.6} />
               <p className="mt-4 font-semibold">{label}</p>
-              <p className="mt-3 rounded-md bg-paper px-2 py-1 font-mono text-[11px] text-ink-muted">{FIXES[id].call}</p>
+              <p className="mt-3 rounded-md bg-paper px-2 py-1 font-mono text-[11px] text-ink-muted">{"call" in f ? f.call : FIXES[id as keyof typeof FIXES].call}</p>
             </li>
           ))}
         </ul>

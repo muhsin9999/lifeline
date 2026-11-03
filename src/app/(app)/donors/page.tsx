@@ -56,7 +56,7 @@ async function Donors({ searchParams }: { searchParams: Promise<Record<string, s
             <div>
               <h1 className="text-xl font-semibold tracking-tight">Donors</h1>
               <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
-                {donors.length} monthly {donors.length === 1 ? "donor" : "donors"} · {money(committed)} a month committed
+                {donors.length} regular {donors.length === 1 ? "donor" : "donors"} · {money(committed)} a gift committed
               </p>
             </div>
             <nav aria-label="Filter donors" className="flex rounded-lg bg-muted p-0.5">

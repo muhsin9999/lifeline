@@ -34,6 +34,7 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
   const r = await getRescue(org.id, id);
   if (!r) notFound();
   const first = r.donor.name.split(" ")[0];
+  const daily = (await dailyDonors(org.id)).has(r.donor.id);
   const owed = r.donor.status === "SUSPENDED" ? ((await owedNow(r.donor.paypalSubscriptionId)) ?? r.donor.outstandingCents) : 0;
   const working = r.status === "new" || r.status === "diagnosing";
   const note = r.notes[0] ?? null;
@@ -59,11 +60,11 @@ async function Rescue({ params }: { params: Promise<{ id: string }> }) {
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">{r.donor.name}</h1>
                 <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
-                  {giftLabel((await dailyDonors(org.id)).has(r.donor.id))} · {money(r.donor.amountCents)}
+                  {giftLabel(daily)} · {money(r.donor.amountCents)}
                   {r.donor.startedAt ? ` · since ${since(r.donor.startedAt)}` : ""}
                 </p>
               </div>
-              <span className="rounded-full bg-brand-tint px-3 py-1 text-sm font-medium text-brand-strong tabular-nums">{money(r.donor.amountCents * 12)} a year at stake</span>
+              <span className="rounded-full bg-brand-tint px-3 py-1 text-sm font-medium text-brand-strong tabular-nums">{money(r.donor.amountCents * (daily ? 365 : 12))} a year at stake</span>
             </div>
             <DonorHistory gifts={r.donor.gifts.map((g) => ({ at: g.chargedAt.toISOString(), cents: g.amountCents, recovered: !!g.recoveredFailureId }))} failedAt={r.failedAt.toISOString()} open={r.status !== "recovered"} />
             <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">

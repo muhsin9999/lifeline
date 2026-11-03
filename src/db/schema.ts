@@ -199,6 +199,7 @@ export const donorsRelations = relations(donors, ({ one, many }) => ({
   gifts: many(gifts),
 }));
 export const giftsRelations = relations(gifts, ({ one }) => ({ donor: one(donors, { fields: [gifts.donorId], references: [donors.id] }) }));
+export const eventsRelations = relations(events, ({ one }) => ({ donor: one(donors, { fields: [events.donorId], references: [donors.id] }) }));
 export const failuresRelations = relations(failures, ({ one, many }) => ({
   org: one(orgs, { fields: [failures.orgId], references: [orgs.id] }),
   donor: one(donors, { fields: [failures.donorId], references: [donors.id] }),

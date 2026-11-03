@@ -36,21 +36,21 @@ export function describe(event: WebhookEvent, donorName?: string | null) {
   const who = donorName ?? "A donor";
   switch (event.event_type) {
     case "BILLING.SUBSCRIPTION.ACTIVATED":
-      return `${who} started monthly giving`;
+      return `${who}’s gift is active on PayPal`;
     case "BILLING.SUBSCRIPTION.PAYMENT.FAILED": {
       const amount = amountText(r.billing_info?.last_failed_payment?.amount);
-      return amount ? `${who}’s gift of ${amount} failed` : `${who}’s monthly gift failed`;
+      return amount ? `${who}’s gift of ${amount} failed` : `${who}’s gift failed`;
     }
     case "BILLING.SUBSCRIPTION.SUSPENDED":
-      return `${who}’s monthly gift was paused`;
+      return `PayPal suspended ${who}’s gift`;
     case "BILLING.SUBSCRIPTION.CANCELLED":
-      return `${who} stopped monthly giving`;
+      return `${who}’s gift was cancelled`;
     case "BILLING.SUBSCRIPTION.EXPIRED":
-      return `${who}’s monthly gift ended`;
+      return `${who}’s gift ended`;
     case "BILLING.SUBSCRIPTION.RE-ACTIVATED":
-      return `${who}’s monthly gift resumed`;
+      return `${who}’s gift resumed`;
     case "BILLING.SUBSCRIPTION.UPDATED":
-      return `${who}’s monthly gift was updated`;
+      return `${who}’s gift was updated`;
     case "PAYMENT.SALE.COMPLETED":
       return `${who} gave ${amountText(r.amount?.total ? { value: r.amount.total, currency_code: r.amount.currency } : null)}`.trim();
     default:

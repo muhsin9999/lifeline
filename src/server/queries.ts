@@ -2,7 +2,7 @@
 import "server-only";
 import { and, asc, desc, eq, gte, inArray, lt, notInArray, sql } from "drizzle-orm";
 import { db, schema as s } from "@/db";
-import { cents } from "@/lib/paypal-events";
+import { cents, describe, type WebhookEvent } from "@/lib/paypal-events";
 import { paypalSdk } from "./paypal/sdk";
 
 /** Waiting on the agent or the officer. */
@@ -144,7 +144,9 @@ export async function getDonor(orgId: string, id: string) {
 
 /** The timeline: PayPal's verified events and Lifeline's own milestones, newest first. */
 export async function getActivity(orgId: string, limit = 80) {
-  return db.query.events.findMany({ where: eq(s.events.orgId, orgId), orderBy: desc(s.events.occurredAt), limit, columns: { payload: false } });
+  const rows = await db.query.events.findMany({ where: eq(s.events.orgId, orgId), orderBy: desc(s.events.occurredAt), limit, with: { donor: { columns: { name: true } } } });
+  // PayPal's events are described again from what PayPal sent, so wording fixes reach older events too.
+  return rows.map(({ payload, donor, ...e }) => ({ ...e, summary: e.source === "paypal" && payload && (payload as { event_type?: string }).event_type ? describe(payload as unknown as WebhookEvent, donor?.name) : e.summary }));
 }
 
 /** Webhook deliveries over the last 30 days, by outcome. Deliveries aren't tied to an org (a forged one names none). */
