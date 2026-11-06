@@ -48,7 +48,7 @@ async function Activity() {
             <h1 className="text-xl font-semibold tracking-tight">Activity</h1>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground tabular-nums">
               <ShieldCheckIcon className="size-4 text-recovered" />
-              PayPal webhooks, last 30 days: {health.total} received · {health.verified} signature-verified · {health.rejected} rejected
+              Events from PayPal, last 30 days: {health.total} received · {health.verified} confirmed as really from PayPal · {health.rejected} turned away
             </p>
           </header>
 
@@ -88,7 +88,7 @@ async function Activity() {
           {!events.length ? <p className="rounded-2xl border border-line bg-surface px-5 py-8 text-center text-sm text-muted-foreground">Nothing yet. Events from PayPal appear here as they arrive.</p> : null}
         </div>
       </main>
-      <ChatRail messages={[{ kind: "text", text: `I check every PayPal event's signature before it reaches this list. ${health.verified} verified in the last 30 days${health.rejected ? `, ${health.rejected} rejected` : ""}.` }]} suggestions={["What happened this week?"]} />
+      <ChatRail messages={[{ kind: "text", text: `Every event here was checked to be really from PayPal before it was listed. ${health.verified} checked in the last 30 days${health.rejected ? `, ${health.rejected} rejected` : ""}.` }]} suggestions={["What happened this week?"]} />
     </>
   );
 }
