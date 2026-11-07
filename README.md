@@ -112,7 +112,7 @@ Everything on that page comes from one file, `src/lib/architecture.ts`.
 Needs Node 22, a PayPal sandbox app with a webhook, an OpenAI key and a Postgres database (Neon's free tier works).
 
 ```bash
-git clone <this repo> && cd lifeline
+git clone https://github.com/muhsin9999/lifeline.git && cd lifeline
 npm install
 cp .env.example .env.local      # fill in PayPal, DATABASE_URL, OpenAI, Resend
 npm run db:migrate
