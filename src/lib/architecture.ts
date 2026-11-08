@@ -103,8 +103,9 @@ export const NODES: ArchNode[] = [
       ["Model", "gpt-5.4-mini"],
       ["Last run", "8.7 s · 2,731 in / 641 out tokens (24 Oct)"],
       ["If AI fails", "Standard fixes and a template note"],
+      ["Evals", "30/30 runs passed · 10 scenarios × 3 (8 Nov)"],
     ],
-    source: ["src/server/ai/rescue.ts", "src/server/ai/agent.ts"],
+    source: ["src/server/ai/rescue-agent.ts", "src/server/ai/rescue.ts", "src/server/ai/agent.ts", "evals/scenarios.ts"],
     trust: "4 read-only tools · no write access",
   },
   {
@@ -146,7 +147,7 @@ export const NODES: ArchNode[] = [
     logo: "shield",
     summary: "Whatever the model suggests, only fixes PayPal can really carry out right now survive: no retry or forgive when nothing is owed, no lower on a small gift, no pause on a paused gift.",
     facts: [["Kept", "Only fixes PayPal can do now"], ["Never offered", "Moving a billing date (PayPal can't)"]],
-    source: ["src/server/ai/rescue.ts", "src/lib/fixes.ts"],
+    source: ["src/server/ai/rescue-agent.ts", "src/lib/fixes.ts"],
     trust: "Drops fixes PayPal can't carry out",
   },
   {

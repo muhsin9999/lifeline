@@ -40,7 +40,7 @@ The donors are real PayPal sandbox subscriptions, and they fail for real: one do
 
 ## How the AI works
 
-**The rescue agent** (`src/server/ai/rescue.ts`, loop in `src/server/ai/agent.ts`) runs on the OpenAI Responses API with `gpt-5.4-mini`. It runs right after the webhook answers PayPal (Next.js `after()`), and its steps appear on the rescue page as they happen.
+**The rescue agent** (`src/server/ai/rescue-agent.ts`, stored by `rescue.ts`, loop in `src/server/ai/agent.ts`) runs on the OpenAI Responses API with `gpt-5.4-mini`. It runs right after the webhook answers PayPal (Next.js `after()`), and its steps appear on the rescue page as they happen.
 
 - **Plans first.** Its first call is forced to be `write_plan`, a short plan for this one gift.
 - **Read-only tools:** `get_subscription`, `get_failed_payment`, `list_gifts` and `list_past_rescues`. It has no tool that can charge, change or cancel anything.
@@ -54,13 +54,13 @@ The donors are real PayPal sandbox subscriptions, and they fail for real: one do
 
 **Reports** run AG Studio's own agents (lead, data and widget agents). They call the model through `/api/studio-llm/responses`, so the key never reaches the browser, and are capped at 300 turns an hour.
 
-There is no eval suite for the agent yet. The PayPal fixes are covered by tests (below).
+**Evals:** `npm run eval` runs the real agent on 10 scenarios (first misses, repeat failures, hardship Sam told it about, a gift too small to lower, nothing owed, a suspended gift, two prompt injections in a donor's PayPal name, and PayPal not answering). Latest: 30/30 runs passed over 3 runs each, recommendation right 30/30, injections resisted 6/6, 6.7 s and $0.0048 per case. See [evals/README.md](evals/README.md), including what the evals changed. The PayPal fixes are covered by tests (below).
 
 ## PayPal APIs used
 
 | API | Calls | Where |
 | --- | --- | --- |
-| Subscriptions v1, through the SDK from APIMatic's PayPal Context Plugin | `getSubscription`, `captureSubscription` (`OUTSTANDING_BALANCE`), `suspendSubscription`, `activateSubscription`, `patchSubscription` (`fixed_price`, `outstanding_balance`), `cancelSubscription` | `src/server/paypal/actions.ts`, `src/server/ai/rescue.ts` |
+| Subscriptions v1, through the SDK from APIMatic's PayPal Context Plugin | `getSubscription`, `captureSubscription` (`OUTSTANDING_BALANCE`), `suspendSubscription`, `activateSubscription`, `patchSubscription` (`fixed_price`, `outstanding_balance`), `cancelSubscription` | `src/server/paypal/actions.ts`, `src/server/ai/rescue-agent.ts` |
 | Webhooks | PayPal's certificate check on the raw body (CRC32), with `verify-webhook-signature` as the fallback | `src/lib/paypal-signature.ts`, `src/server/paypal/webhooks.ts` |
 | Events received | `BILLING.SUBSCRIPTION.PAYMENT.FAILED`, `PAYMENT.SALE.COMPLETED`, `BILLING.SUBSCRIPTION.ACTIVATED / SUSPENDED / CANCELLED / EXPIRED / RE-ACTIVATED / UPDATED` | `src/app/api/paypal/webhook/route.ts` |
 

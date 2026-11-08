@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/db.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/eval-rescue.ts"
   },
   "engines": {
     "node": ">=22"
