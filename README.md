@@ -10,7 +10,7 @@ Lifeline watches for them:
 2. **The agent looks into it.** It writes a plan, reads the donor's PayPal subscription and giving history with read-only tools, explains in one sentence why the gift failed, suggests a fix and drafts a kind note.
 3. **The fundraising officer approves one fix.** Lifeline carries it out on PayPal (retry the charge, pause, lower the gift, forgive the month or cancel) or sends the note, then watches until the gift comes back.
 
-**Live:** <https://lifeline-giving.vercel.app> → **See it live**. No sign-up. Video: _link added at submission_.
+**Live:** <https://lifeline-giving.vercel.app> → **See it live**. No sign-up. Video: <https://youtu.be/gvJcXfknIFc>.
 
 > Lifeline is not affiliated with or endorsed by PayPal. It runs on the PayPal sandbox; no real money moves. Larkhaven Food Bank and its donors are fictional, and every donor note goes to a single test inbox.
 
